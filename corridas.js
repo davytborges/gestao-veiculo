@@ -59,6 +59,106 @@ function homeWindows(mode){const now=new Date(),todayStr=dateISO(now);if(mode===
 }
 function comparisonValue(id,value,prior){const node=$(id);if(!node)return;if(prior===0){node.textContent=value===0?'Sem variação':'Sem base anterior';node.className='';return}const rate=(value-prior)/Math.abs(prior)*100;node.textContent=(rate>0?'▲ ':rate<0?'▼ ':'= ')+new Intl.NumberFormat('pt-BR',{maximumFractionDigits:1}).format(Math.abs(rate))+'%';node.className=rate>0?'good':rate<0?'bad':''}
 function svgNode(tag,attrs,textValue){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))n.setAttribute(k,v);if(textValue!=null)n.textContent=String(textValue);return n}
+
+// v38: últimas 15 corridas, rentabilidade colorida e tooltip individual.
+const performanceVisibility={km:true,hour:true};
+let performancePinned=null;
+const performanceMoney=n=>Number.isFinite(n)?brl(n):'—';
+function performanceColor(v){
+ if(v<1)return '#f05252';
+ if(v>1.5)return '#4de0b0';
+ const mix=(a,b,t)=>Math.round(a+(b-a)*t);
+ const blend=(a,b,t)=>`rgb(${mix(a[0],b[0],t)},${mix(a[1],b[1],t)},${mix(a[2],b[2],t)})`;
+ const t=Math.max(0,Math.min(1,(v-1)/.5));
+ return t<.5?blend([240,82,82],[245,201,76],t*2):blend([245,201,76],[77,224,176],(t-.5)*2);
+}
+function renderPerformance(){
+ const chart=$('perfChart');if(!chart)return;
+ chart.replaceChildren();
+ const tooltip=$('perfTooltip');tooltip.hidden=true;performancePinned=null;
+ const rows=[...state.rides].sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id))).slice(0,15).reverse();
+ $('perfCount').textContent=rows.length+' '+(rows.length===1?'corrida':'corridas');
+ const points=rows.map((r,i)=>{
+   const profit=revenueHome(r)-energyHome(r)-reserveHome(r);
+   const km=Number(r.km||0),hours=Number(r.hours||0);
+   return{index:i,date:r.date,km,hours,profit,kmRate:km>0?profit/km:null,hourRate:hours>0?profit/hours:null};
+ });
+ const validKm=points.filter(p=>p.kmRate!==null),validHour=points.filter(p=>p.hourRate!==null);
+ const sum=(arr,k)=>arr.reduce((a,x)=>a+x[k],0);
+ $('perfAvgKm').textContent=validKm.length?performanceMoney(sum(validKm,'profit')/sum(validKm,'km'))+'/km':'—';
+ $('perfAvgHour').textContent=validHour.length?performanceMoney(sum(validHour,'profit')/sum(validHour,'hours'))+'/h':'—';
+ const svg=chart,left=58,right=652,top=36,bottom=245;
+ const x=i=>points.length===1?(left+right)/2:left+i*(right-left)/Math.max(1,points.length-1);
+ const scale=(key)=>{
+  const vals=points.map(p=>p[key]).filter(Number.isFinite);
+  if(!vals.length)return{min:0,max:1};
+  const lo=Math.min(...vals),hi=Math.max(...vals),pad=Math.max((hi-lo)*.16,.05,Math.abs(hi)*.08);
+  return{min:Math.min(0,lo-pad),max:hi+pad};
+ };
+ const kScale=scale('kmRate'),hScale=scale('hourRate');
+ const y=(v,axis)=>bottom-(v-axis.min)/Math.max(.0001,axis.max-axis.min)*(bottom-top);
+ const numeric=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+ for(let i=0;i<5;i++){
+  const yy=top+i*(bottom-top)/4;
+  svg.append(svgNode('line',{x1:left,x2:right,y1:yy,y2:yy,stroke:'#345168','stroke-width':1}));
+  svg.append(svgNode('text',{x:left-11,y:yy+4,fill:'#8edfc6','font-size':11,'text-anchor':'end'},numeric(kScale.max-i*(kScale.max-kScale.min)/4)));
+  svg.append(svgNode('text',{x:right+12,y:yy+4,fill:'#8fb8ff','font-size':11},numeric(hScale.max-i*(hScale.max-hScale.min)/4)));
+ }
+ for(let i=0;i<points.length;i++){
+  if(points.length<=8||i===0||i===points.length-1||i%2===0)
+   svg.append(svgNode('text',{x:x(i),y:269,fill:'#a9c0d0','font-size':11,'text-anchor':'middle'},i+1));
+ }
+ svg.append(svgNode('text',{x:356,y:295,fill:'#a9c0d0','font-size':11,'text-anchor':'middle'},'Corridas (da mais antiga à mais recente)'));
+ const lines=svgNode('g',{}),dots=svgNode('g',{});svg.append(lines,dots);
+ const fmtDate=s=>s.split('-').reverse().join('/');
+ const hideTip=()=>{tooltip.hidden=true;performancePinned=null};
+ function showTip(p,key){
+  const rate=key==='km'?p.kmRate:p.hourRate;if(rate===null)return;
+  const c=key==='km'?performanceColor(rate):'#6ea8ff';
+  const small=document.createElement('small');small.textContent=`Corrida ${p.index+1} · ${fmtDate(p.date)} · ${key==='km'?'Lucro/km':'Lucro/hora'}`;
+  const strong=document.createElement('strong');strong.textContent=performanceMoney(rate)+(key==='km'?'/km':'/h');
+  tooltip.replaceChildren(small,strong);tooltip.hidden=false;tooltip.style.setProperty('--tip-color',c);
+  const box=$('perfPlot').getBoundingClientRect(),pnt=chart.createSVGPoint();pnt.x=x(p.index);pnt.y=y(rate,key==='km'?kScale:hScale);
+  const matrix=chart.getScreenCTM();if(!matrix)return;
+  const scr=pnt.matrixTransform(matrix),px=scr.x-box.left,py=scr.y-box.top;
+  tooltip.style.left=Math.max(4,Math.min(box.width-tooltip.offsetWidth-4,px+12))+'px';
+  tooltip.style.top=Math.max(4,Math.min(box.height-tooltip.offsetHeight-4,py-tooltip.offsetHeight-12))+'px';
+ }
+ const drawLine=(key)=>{
+  const field=key==='km'?'kmRate':'hourRate',axis=key==='km'?kScale:hScale;
+  for(let i=1;i<points.length;i++){
+   const a=points[i-1],b=points[i];if(a[field]===null||b[field]===null)continue;
+   if(key==='km'){
+    const chunks=12;
+    for(let k=0;k<chunks;k++){
+     const t=k/chunks,u=(k+1)/chunks,v=a[field]+(b[field]-a[field])*t,w=a[field]+(b[field]-a[field])*u;
+     lines.append(svgNode('line',{x1:x(i-1)+(x(i)-x(i-1))*t,y1:y(v,axis),x2:x(i-1)+(x(i)-x(i-1))*u,y2:y(w,axis),stroke:performanceColor((v+w)/2),'stroke-width':2.8,'stroke-linecap':'round'}));
+    }
+   }else lines.append(svgNode('line',{x1:x(i-1),y1:y(a[field],axis),x2:x(i),y2:y(b[field],axis),stroke:'#6ea8ff','stroke-width':2.6,'stroke-linecap':'round'}));
+  }
+  points.forEach(p=>{
+   const v=p[field];if(v===null)return;
+   const color=key==='km'?performanceColor(v):'#6ea8ff',cx=x(p.index),cy=y(v,axis);
+   dots.append(svgNode('circle',{cx,cy,r:4.6,fill:color,stroke:'#0b2032','stroke-width':1.3,'pointer-events':'none'}));
+   const hit=svgNode('circle',{cx,cy,r:15,fill:'transparent',role:'button',tabindex:0,class:'perf-dot','aria-label':`Corrida ${p.index+1}, ${key==='km'?'lucro por km':'lucro por hora'}, ${performanceMoney(v)}`});
+   hit.addEventListener('pointerenter',()=>showTip(p,key));
+   hit.addEventListener('focus',()=>showTip(p,key));
+   hit.addEventListener('click',e=>{e.stopPropagation();performancePinned={i:p.index,key};showTip(p,key)});
+   hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();performancePinned={i:p.index,key};showTip(p,key)}});
+   hit.addEventListener('pointerleave',()=>{if(!performancePinned)tooltip.hidden=true});
+   dots.append(hit);
+  });
+ };
+ if(performanceVisibility.km)drawLine('km');
+ if(performanceVisibility.hour)drawLine('hour');
+ chart.onclick=e=>{if(!e.target.classList.contains('perf-dot'))hideTip()};
+}
+for(const [id,key] of [['perfToggleKm','km'],['perfToggleHour','hour']]){
+ const button=$(id);if(button)button.onclick=()=>{
+  performanceVisibility[key]=!performanceVisibility[key];button.setAttribute('aria-pressed',String(performanceVisibility[key]));renderPerformance();
+ };
+}
+
 function renderEfficiency(){const chart=$('homeEfficiencyChart');if(!chart)return;chart.replaceChildren();const now=new Date(),points=[];for(let i=14;i>=0;i--){const day=offsetISO(now,-i),rides=state.rides.filter(r=>r.date===day),km=sumHome(rides,'km'),kwh=rides.reduce((a,r)=>a+kwhExibicao(r),0);points.push({date:day,km,kwh,ratio:km>0?kwh/km*100:null})}
  const validPoints=points.filter(p=>p.ratio!=null);const xs=points.map((p,i)=>44+i*(561/14)),lo=Math.max(0,Math.min(...validPoints.map(p=>p.ratio),10)-2),hi=Math.max(lo+4,...validPoints.map(p=>p.ratio+2),20),y=v=>169-(v-lo)/(hi-lo)*130;
  for(let k=0;k<4;k++){const val=lo+(hi-lo)*k/3,cy=y(val);chart.append(svgNode('line',{x1:43,x2:605,y1:cy,y2:cy,stroke:'#31546a','stroke-width':1}));chart.append(svgNode('text',{x:2,y:cy+4,fill:'#9bb8ca','font-size':12},fmt(val)))}
@@ -69,7 +169,7 @@ function renderEfficiency(){const chart=$('homeEfficiencyChart');if(!chart)retur
  const all=homeTotals(offsetISO(now,-14),dateISO(now));$('effAverage').textContent=all.km?fmt(all.kwh/all.km*100)+' kWh/100 km':'—';$('effCost').textContent=all.km?brl(all.energy/all.km)+'/km':'—';$('effKmKwh').textContent=all.kwh?fmt(all.km/all.kwh)+' km/kWh':'—';
 }
 function renderHome(){if(!$('homeRevenue'))return;const date=homeSelectedDate,day=homeTotals(date,date);$('homeDateCaption').textContent=(date===today()?'Hoje':'Dia selecionado')+' · '+date.split('-').reverse().join('/');$('homeRevenue').textContent=brl(day.rev);$('homeProfit').textContent=brl(day.profit);$('homeKm').textContent=fmt(day.km)+' km';$('homeKwh').textContent=fmt(day.kwh)+' kWh';$('homeTime').textContent=duration(day.hours);$('homeConsumption').textContent=day.km?fmt(day.kwh/day.km*100)+' kWh/100 km':'—';$('homeHour').textContent='Lucro/hora: '+(day.hours?brl(day.profit/day.hours):'—');$('homePerKm').textContent='Lucro/km: '+(day.km?brl(day.profit/day.km):'—');
- const ranges=homeWindows(homePeriod),a=homeTotals(...ranges.current),b=homeTotals(...ranges.previous);$('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';$('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';$('cmpRevenue').textContent=brl(a.rev);comparisonValue('cmpHourChange',a.hours?a.profit/a.hours:0,b.hours?b.profit/b.hours:0);comparisonValue('cmpKmChange',a.km?a.profit/a.km:0,b.km?b.profit/b.km:0);comparisonValue('cmpRevenueChange',a.rev,b.rev);$('cmpCaption').textContent=ranges.label+'. Variações com base nos lançamentos.';renderEfficiency();renderHomeRecent()}
+ const ranges=homeWindows(homePeriod),a=homeTotals(...ranges.current),b=homeTotals(...ranges.previous);$('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';$('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';$('cmpRevenue').textContent=brl(a.rev);comparisonValue('cmpHourChange',a.hours?a.profit/a.hours:0,b.hours?b.profit/b.hours:0);comparisonValue('cmpKmChange',a.km?a.profit/a.km:0,b.km?b.profit/b.km:0);comparisonValue('cmpRevenueChange',a.rev,b.rev);$('cmpCaption').textContent=ranges.label+'. Variações com base nos lançamentos.';renderPerformance();renderEfficiency();renderHomeRecent()}
 function homeChargeRows(){try{return window.BYDLocal?.get()?.records||[]}catch{return []}}
 function renderHomeRecent(){const el=$('homeRecentList');if(!el)return;const type=$('homeRecentType').value,items=type==='ride'?state.rides:type==='expense'?state.expenses:homeChargeRows();el.replaceChildren();if(!ready){const p=document.createElement('p');p.className='hint';p.textContent='Conecte sua conta e aguarde a sincronização.';el.append(p);return}if(!items.length){const p=document.createElement('p');p.className='hint';p.textContent='Nenhum lançamento cadastrado nesta categoria.';el.append(p);return}
  for(const r of [...items].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8)){const line=document.createElement('div');line.className='home-recent-item';const detail=document.createElement('div'),head=document.createElement('b'),info=document.createElement('small'),actions=document.createElement('div');actions.className='home-recent-buttons';head.textContent=r.date.split('-').reverse().join('/')+' · '+(type==='ride'?'Corrida':type==='expense'?'Despesa':'Recarga');

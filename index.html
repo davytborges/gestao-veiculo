@@ -135,6 +135,29 @@ main.wrap{max-width:1160px}
 .byd-cal-month{border:0;border-radius:9px;background:#142c40;color:#fff;padding:13px 4px;font:inherit;cursor:pointer}
 @media(max-width:500px){.byd-cal-popup{width:min(328px,calc(100vw - 20px));padding:12px}.byd-cal-date{height:38px}}
 
+
+/* v38: desempenho de 15 corridas (2 escalas independentes) */
+.home-performance .home-heading{align-items:flex-start}
+.home-performance .perf-tag{margin-left:auto}
+.perf-controls{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0}
+.perf-toggle{display:inline-flex;align-items:center;gap:9px;min-height:37px;padding:8px 12px;background:#20394b;border:1px solid #45647b;color:#f1f8ff;border-radius:10px;font-size:13px;font-weight:650}
+.perf-toggle[aria-pressed="false"]{opacity:.47;background:#0b2032}
+.perf-toggle .perf-line{display:block;width:20px;height:3px;border-radius:5px;background:var(--line-color)}
+.perf-plot{position:relative;background:#0b2032;border-radius:14px;padding:10px 9px 7px;min-width:0}
+#perfChart{display:block;width:100%;height:auto;overflow:visible;touch-action:manipulation}
+.perf-tip{position:absolute;z-index:4;pointer-events:none;min-width:124px;max-width:190px;background:#203a50;border:1px solid var(--tip-color,#4de0b0);border-radius:10px;padding:8px 11px;box-shadow:0 8px 22px #0008;color:#eef6ff}
+.perf-tip small{display:block;font-size:11px;color:#c1d3df}.perf-tip strong{display:block;font-size:16px;margin-top:4px;color:var(--tip-color,#4de0b0)}
+.perf-dot{cursor:pointer;outline:none}.perf-dot:focus-visible{stroke:#fff;stroke-width:2.5}
+.perf-axis-note{display:flex;justify-content:space-between;gap:12px;margin:1px 2px 4px;font-size:11px;color:var(--muted)}
+.perf-axis-note span:first-child{color:#4de0b0}.perf-axis-note span:last-child{color:#6ea8ff}
+.perf-average-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:11px}
+.perf-average-grid>div{background:#0b2032;border-radius:12px;padding:14px;min-width:0}
+.perf-average-grid small{display:block;color:var(--muted);font-size:12px;margin-bottom:6px}
+.perf-average-grid strong{font-size:19px;overflow-wrap:anywhere}
+.perf-thresholds{display:flex;flex-wrap:wrap;gap:7px 15px;padding-top:13px;font-size:12px;color:#c5d6e1}
+.perf-thresholds span{display:inline-flex;align-items:center;gap:6px}
+.perf-thresholds i{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
+@media(max-width:550px){.home-performance .perf-tag{font-size:11px}.perf-plot{padding:8px 3px 4px}.perf-average-grid>div{padding:10px}.perf-average-grid strong{font-size:15px}.perf-thresholds{font-size:11px;gap:8px}.perf-toggle{font-size:12px}}
 </style></head><body><main class="wrap"><h1 class="unified-title">BYD King — Gestão</h1><div class="card compact-login" id="authPanel"><div class="row"><strong id="authStatus">Conectando…</strong><button class="secondary" id="googleLogin" type="button" hidden>Entrar com Google</button></div><p id="saveStatus" class="small">Aguardando o Firebase…</p></div><nav class="tabs" aria-label="Menu principal"><button data-tab="inicio" class="active">⌂ Início</button><button data-tab="corridas">🚘 Corridas</button><button data-tab="recargas">⚡ Recargas</button><button data-tab="resumo">📊 Resumo</button><button data-tab="caixa">💰 Caixa</button><button data-tab="ajustes">⚙ Ajustes</button></nav><section id="inicio" class="byd-home">
   <div class="home-top-grid">
     <article class="card home-today">
@@ -151,6 +174,27 @@ main.wrap{max-width:1160px}
       <p class="hint" id="cmpCaption">Comparação com o período anterior.</p>
     </article>
   </div>
+  <article class="card home-performance" aria-labelledby="perfTitle">
+    <div class="home-heading"><div><h2 id="perfTitle">◫ Desempenho das corridas</h2><p class="hint">Últimas 15 corridas</p></div><span id="perfCount" class="home-pill perf-tag">0 corridas</span></div>
+    <div class="perf-controls" aria-label="Exibir indicadores">
+      <button type="button" class="perf-toggle" id="perfToggleKm" aria-pressed="true" style="--line-color:#4de0b0"><span class="perf-line"></span>Lucro/km</button>
+      <button type="button" class="perf-toggle" id="perfToggleHour" aria-pressed="true" style="--line-color:#6ea8ff"><span class="perf-line"></span>Lucro/hora</button>
+    </div>
+    <div class="perf-plot" id="perfPlot">
+      <svg id="perfChart" viewBox="0 0 720 305" role="img" aria-label="Lucro por quilômetro e por hora das últimas quinze corridas"></svg>
+      <div id="perfTooltip" class="perf-tip" hidden aria-live="polite"></div>
+      <div class="perf-axis-note"><span>Esquerda: R$/km</span><span>Direita: R$/hora</span></div>
+    </div>
+    <div class="perf-average-grid">
+      <div><small>Lucro médio por km</small><strong id="perfAvgKm" style="color:#4de0b0">—</strong></div>
+      <div><small>Lucro médio por hora</small><strong id="perfAvgHour" style="color:#6ea8ff">—</strong></div>
+    </div>
+    <div class="perf-thresholds" aria-label="Classificação do lucro por quilômetro">
+      <span><i style="background:#f05252"></i>Abaixo de R$ 1,00/km — Baixo</span>
+      <span><i style="background:#f5c94c"></i>R$ 1,00 a R$ 1,50/km — Médio</span>
+      <span><i style="background:#4de0b0"></i>Acima de R$ 1,50/km — Bom</span>
+    </div>
+  </article>
   <article class="card home-efficiency"><div class="home-heading"><h2>ϟ Eficiência elétrica</h2><span class="home-pill">Últimos 15 dias</span></div><div class="home-eff-grid"><div class="home-chart-wrap"><svg id="homeEfficiencyChart" viewBox="0 0 640 215" role="img" aria-label="Consumo elétrico por dia em kWh por 100 km"></svg><div class="home-chart-note">Consumo registrado nas corridas (kWh por 100 km). Dias sem quilometragem não entram na média.</div></div><div class="home-eff-numbers"><div><span>Consumo médio</span><strong id="effAverage">—</strong></div><div><span>Custo de energia por km</span><strong id="effCost">—</strong></div><div><span>Eficiência média</span><strong id="effKmKwh">—</strong></div></div></div></article>
   <article class="card home-recent"><div class="home-heading"><div><h2>☷ Lançamentos recentes</h2><p class="hint">Edite os lançamentos sem precisar excluir e cadastrar novamente.</p></div><select id="homeRecentType" aria-label="Tipo de lançamento"><option value="ride">Corridas</option><option value="charge">Recargas</option></select></div><div id="homeRecentList" class="home-recent-list"><p class="hint">Aguardando dados da conta.</p></div></article>
   <div id="homeEditOverlay" class="home-edit-overlay" hidden><div class="home-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="homeEditHeading"><div class="home-heading"><h2 id="homeEditHeading">Editar lançamento</h2><button type="button" class="home-icon-btn" id="homeEditClose" aria-label="Fechar edição">✕</button></div><form id="homeEditForm"><div id="homeEditFields" class="home-edit-fields"></div><p id="homeEditStatus" class="hint" role="status"></p><div class="home-edit-actions"><button type="button" class="secondary" id="homeEditCancel">Cancelar</button><button type="submit" class="primary" id="homeEditSubmit">Salvar alterações</button></div></form></div></div>
@@ -196,7 +240,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=36')
+ import('./corridas.js?v=38')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)
