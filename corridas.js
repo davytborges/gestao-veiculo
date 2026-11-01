@@ -7,7 +7,7 @@ const brl=n=>Number(n).toLocaleString('pt-BR',{style:'currency',currency:'BRL'})
 const duration=h=>{const mins=Math.round(Number(h||0)*60);return Math.floor(mins/60)+'h'+String(mins%60).padStart(2,'0')+'min'};
 // Históricos do Excel guardam custo em R$, sem medição de kWh. Conversão equivalente com tarifa de R$ 1,20/kWh.
 const kwhExibicao=r=>r.source==='Excel 2026'&&Number.isFinite(r.energyCostOverride)?Number(r.energyCostOverride)/1.20:Number(r.kwh||0);
-const initial=()=>({rides:[],expenses:[],withdrawals:[],settings:{tariff:1.185,perKm:0.45,fuelPrice:6}});let state=initial(),ready=false,ref=null,unsubscribe=null,writing=false,homePeriod='day',homeSelectedDate=today();
+const initial=()=>({rides:[],expenses:[],withdrawals:[],settings:{tariff:1.185,perKm:0.45,fuelPrice:6}});let state=initial(),ready=false,ref=null,unsubscribe=null,writing=false,homePeriod='7',homeSelectedDate=today();
 const status=(s)=>{$('saveStatus').textContent=s};const newId=()=>crypto.randomUUID?crypto.randomUUID():Date.now()+'-'+Math.random();
 for(const id of ['rideDate','cashDate'])$(id).value=today();$('filterMonth').value=today().slice(0,7);$('filterYear').value=today().slice(0,4);$('dateFrom').value=today().slice(0,7)+'-01';$('dateTo').value=today();
 function fields(){for(const k of ['tariff','perKm','fuelPrice'])$(k).value=String(state.settings[k]).replace('.',',')}
@@ -53,10 +53,24 @@ const reserveHome=r=>Number(r.km||0)*Number(r.perKm??state.settings.perKm);
 function homeTotals(begin,end){const rides=state.rides.filter(r=>r.date>=begin&&r.date<=end),expenses=state.expenses.filter(x=>x.date>=begin&&x.date<=end);const rev=rides.reduce((a,r)=>a+revenueHome(r),0),energy=rides.reduce((a,r)=>a+energyHome(r),0),reserve=rides.reduce((a,r)=>a+reserveHome(r),0),km=sumHome(rides,'km'),kwh=rides.reduce((a,r)=>a+kwhExibicao(r),0),hours=sumHome(rides,'hours'),expense=sumHome(expenses,'value')+operationalCashExpenses(begin,end).reduce((a,x)=>a+Number(x.value||0),0);return{rev,energy,reserve,km,kwh,hours,expense,profit:rev-energy-reserve-expense}}
 function dateISO(d){return[d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
 function offsetISO(d,n){const q=new Date(d.getFullYear(),d.getMonth(),d.getDate()+n,12);return dateISO(q)}
-function homeWindows(mode){const now=new Date(),todayStr=dateISO(now);if(mode==='day')return {current:[todayStr,todayStr],previous:[offsetISO(now,-1),offsetISO(now,-1)],label:'Hoje x ontem'};
- if(mode==='week'){const elapsed=(now.getDay()+6)%7,first=offsetISO(now,-elapsed);return{current:[first,todayStr],previous:[offsetISO(now,-elapsed-7),offsetISO(now,-7)],label:'Semana até hoje x mesmos dias da semana anterior'}};
- const first=dateISO(new Date(now.getFullYear(),now.getMonth(),1));const prevFirst=new Date(now.getFullYear(),now.getMonth()-1,1);const prevLastDay=new Date(now.getFullYear(),now.getMonth(),0).getDate();const capped=Math.min(now.getDate(),prevLastDay);return{current:[first,todayStr],previous:[dateISO(prevFirst),dateISO(new Date(prevFirst.getFullYear(),prevFirst.getMonth(),capped))],label:'Mês até hoje x mesmos dias do mês anterior'};
+// Comparativo por DIAS COM CORRIDAS, nunca por dias corridos do calendário.
+// Os períodos não se sobrepõem e cada lançamento do mesmo dia entra na soma.
+function homeWorkingPeriods(amount){
+ const n=[7,15,30].includes(Number(amount))?Number(amount):7;
+ const days=[...new Set(state.rides.map(r=>r.date).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&d<=today()))].sort();
+ return {n,current:days.slice(-n),previous:days.slice(-2*n,-n)};
 }
+function homeWorkingTotals(dates){
+ const set=new Set(dates),rides=state.rides.filter(r=>set.has(r.date));
+ const rev=rides.reduce((a,r)=>a+revenueHome(r),0);
+ const energy=rides.reduce((a,r)=>a+energyHome(r),0);
+ const reserve=rides.reduce((a,r)=>a+reserveHome(r),0);
+ const km=sumHome(rides,'km'),hours=sumHome(rides,'hours');
+ const expenses=(state.expenses||[]).filter(e=>set.has(e.date)).reduce((a,e)=>a+Number(e.value||0),0)
+  +(state.withdrawals||[]).filter(e=>paidFromGains(e)&&set.has(e.date)).reduce((a,e)=>a+Number(e.value||0),0);
+ return {rev,energy,reserve,km,hours,expenses,profit:rev-energy-reserve-expenses};
+}
+function briefDates(days){if(!days.length)return 'sem registros';const fmtDate=d=>d.slice(8)+'/'+d.slice(5,7);return fmtDate(days[0])+' a '+fmtDate(days[days.length-1]);}
 function comparisonValue(id,value,prior){const node=$(id);if(!node)return;if(prior===0){node.textContent=value===0?'Sem variação':'Sem base anterior';node.className='';return}const rate=(value-prior)/Math.abs(prior)*100;node.textContent=(rate>0?'▲ ':rate<0?'▼ ':'= ')+new Intl.NumberFormat('pt-BR',{maximumFractionDigits:1}).format(Math.abs(rate))+'%';node.className=rate>0?'good':rate<0?'bad':''}
 function svgNode(tag,attrs,textValue){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))n.setAttribute(k,v);if(textValue!=null)n.textContent=String(textValue);return n}
 
@@ -226,7 +240,20 @@ function renderEfficiency(){
  $('effKmKwh').textContent=kwh?fmt(km/kwh)+' km/kWh':'—';
 }
 function renderHome(){if(!$('homeRevenue'))return;const date=homeSelectedDate,day=homeTotals(date,date);$('homeDateCaption').textContent=(date===today()?'Hoje':'Dia selecionado')+' · '+date.split('-').reverse().join('/');$('homeRevenue').textContent=brl(day.rev);$('homeProfit').textContent=brl(day.profit);$('homeKm').textContent=fmt(day.km)+' km';$('homeKwh').textContent=fmt(day.kwh)+' kWh';$('homeTime').textContent=duration(day.hours);$('homeConsumption').textContent=day.km?fmt(day.kwh/day.km*100)+' kWh/100 km':'—';$('homeHour').textContent='Lucro/hora: '+(day.hours?brl(day.profit/day.hours):'—');$('homePerKm').textContent='Lucro/km: '+(day.km?brl(day.profit/day.km):'—');
- const ranges=homeWindows(homePeriod),a=homeTotals(...ranges.current),b=homeTotals(...ranges.previous);$('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';$('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';$('cmpRevenue').textContent=brl(a.rev);comparisonValue('cmpHourChange',a.hours?a.profit/a.hours:0,b.hours?b.profit/b.hours:0);comparisonValue('cmpKmChange',a.km?a.profit/a.km:0,b.km?b.profit/b.km:0);comparisonValue('cmpRevenueChange',a.rev,b.rev);$('cmpCaption').textContent=ranges.label+'. Variações com base nos lançamentos.';renderPerformance();renderEfficiency();renderHomeRecent()}
+ const periods=homeWorkingPeriods(homePeriod),a=homeWorkingTotals(periods.current),b=homeWorkingTotals(periods.previous);
+ const complete=periods.current.length===periods.n&&periods.previous.length===periods.n;
+ $('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';
+ $('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';
+ $('cmpRevenue').textContent=brl(a.rev);
+ if(complete){
+  comparisonValue('cmpHourChange',a.hours?a.profit/a.hours:0,b.hours?b.profit/b.hours:0);
+  comparisonValue('cmpKmChange',a.km?a.profit/a.km:0,b.km?b.profit/b.km:0);
+  comparisonValue('cmpRevenueChange',a.rev,b.rev);
+ }else{
+  for(const id of ['cmpHourChange','cmpKmChange','cmpRevenueChange']){$(id).textContent='Sem base anterior completa';$(id).className='';}
+ }
+ $('cmpCaption').textContent=`${periods.current.length} de ${periods.n} dias com corridas (${briefDates(periods.current)}) × ${periods.previous.length} dias anteriores (${briefDates(periods.previous)}). Dias sem corridas não entram. ${complete?'Comparação entre períodos equivalentes.':'A variação será exibida quando houver dois períodos completos.'}`;
+renderPerformance();renderEfficiency();renderHomeRecent()}
 function homeChargeRows(){try{return window.BYDLocal?.get()?.records||[]}catch{return []}}
 function renderHomeRecent(){const el=$('homeRecentList');if(!el)return;const type=$('homeRecentType').value,items=type==='ride'?state.rides:type==='expense'?state.expenses:homeChargeRows();el.replaceChildren();if(!ready){const p=document.createElement('p');p.className='hint';p.textContent='Conecte sua conta e aguarde a sincronização.';el.append(p);return}if(!items.length){const p=document.createElement('p');p.className='hint';p.textContent='Nenhum lançamento cadastrado nesta categoria.';el.append(p);return}
  for(const r of [...items].sort((a,b)=>b.date.localeCompare(a.date)).slice(0,8)){const line=document.createElement('div');line.className='home-recent-item';const detail=document.createElement('div'),head=document.createElement('b'),info=document.createElement('small'),actions=document.createElement('div');actions.className='home-recent-buttons';head.textContent=r.date.split('-').reverse().join('/')+' · '+(type==='ride'?'Corrida':type==='expense'?'Despesa':'Recarga');

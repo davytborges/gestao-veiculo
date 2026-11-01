@@ -167,11 +167,11 @@ main.wrap{max-width:1160px}
       <div class="home-ratios"><span id="homeHour">Lucro/hora: —</span><span id="homePerKm">Lucro/km: —</span></div>
     </article>
     <article class="card home-comparison"><div class="home-heading"><h2>▥ Comparativo de desempenho</h2></div>
-      <div class="home-segments" role="group" aria-label="Período comparado"><button type="button" class="selected" data-home-period="day">Hoje</button><button type="button" data-home-period="week">Semana</button><button type="button" data-home-period="month">Mês</button></div>
+      <div class="home-segments" role="group" aria-label="Quantidade de dias trabalhados para comparação"><button type="button" class="selected" data-home-period="7">7 dias</button><button type="button" data-home-period="15">15 dias</button><button type="button" data-home-period="30">30 dias</button></div>
       <div class="home-comp-row"><span>Lucro por hora</span><b id="cmpHour">—</b><small id="cmpHourChange">—</small></div>
       <div class="home-comp-row"><span>Lucro por km</span><b id="cmpKm">—</b><small id="cmpKmChange">—</small></div>
       <div class="home-comp-row"><span>Faturamento</span><b id="cmpRevenue">R$ 0,00</b><small id="cmpRevenueChange">—</small></div>
-      <p class="hint" id="cmpCaption">Comparação com o período anterior.</p>
+      <p class="hint" id="cmpCaption">Comparando dias com corridas, sem contar dias vazios.</p>
     </article>
   </div>
   <article class="card home-performance" aria-labelledby="perfTitle">
@@ -240,7 +240,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=40')
+ import('./corridas.js?v=41')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)
