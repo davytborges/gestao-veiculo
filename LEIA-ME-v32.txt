@@ -1,0 +1,35 @@
+BYD KING — GESTÃO v32 | PAINEL RESPONSIVO
+
+Base: v31 (última versão aprovada). Alterações desta atualização:
+- Aba Início no PC e celular, com indicadores do dia e lucro líquido estimado.
+- Comparativo Hoje / Semana / Mês com o período anterior equivalente.
+- Eficiência elétrica: kWh/100 km, custo por km e evolução de 7 dias.
+- Lançamentos recentes: Corridas, Recargas e Despesas; edição dos registros no Firebase.
+- As demais abas, incluindo Caixa e Ajustes, continuam existentes.
+- Correção da importação getDocFromServer no módulo de Corridas.
+
+ATUALIZAÇÃO NO GITHUB PAGES
+Substitua somente os arquivos da raiz do repositório:
+  index.html
+  corridas.js
+  cloud.js
+  sw.js
+Não altere os arquivos de ícones, manifest.webmanifest ou regras do Firebase.
+
+Abra: https://davytborges.github.io/minhas-recargas-byd/?v=32
+
+SEGURANÇA / TESTE
+Antes da publicação, exporte um backup pelo menu Ajustes na versão atual.
+Depois da publicação, confira seu login Google e os lançamentos existentes.
+Faça uma edição pequena em um lançamento, salve e atualize a página para confirmar persistência.
+O código passou por verificações de sintaxe e de referências de elementos HTML,
+mas NÃO foi possível testar a conexão real com o Firebase da sua conta neste ambiente.
+
+CÁLCULOS
+O lucro líquido estimado desconta custo de energia nas corridas,
+reserva do veículo e despesas cadastradas. A gasolina consumida é informativa;
+o valor de abastecimento já é lançado em Despesas para evitar dupla contagem.
+Recargas não são somadas ao consumo das corridas.
+Desempenho da semana: segunda a hoje, comparado aos mesmos dias da semana passada.
+Desempenho do mês: primeiro dia até hoje, comparado aos mesmos dias do mês passado.
+As corridas históricas com custo de energia original mantêm o valor antigo.
