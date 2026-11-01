@@ -71,7 +71,8 @@ html:not(.byd-authenticated) main.wrap > footer {display:none!important}
 @media(max-width:600px){#recargas .re-charge-row{grid-template-columns:1fr}}
 
 /* v32: mesma identidade visual, desktop e celular */
-main.wrap:has(#inicio:not([hidden])){max-width:1160px}
+/* v33: largura consistente para todas as abas; responsividade mantida */
+main.wrap{max-width:1160px}
 .byd-home .card{margin:15px 0;background:var(--panel);border:1px solid var(--stroke)}
 .home-top-grid{display:grid;grid-template-columns:minmax(0,1.7fr) minmax(285px,1fr);gap:14px}
 .home-top-grid .card{margin:15px 0 0}
