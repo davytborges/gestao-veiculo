@@ -1,9 +1,0 @@
-BYD King – Gestão v31
-
-Alterações:
-1. Resumo > Dias trabalhados: o valor em R$ passa a representar o lucro líquido diário (ganhos menos energia, reserva do veículo e despesas avulsas), usando o mesmo cálculo já existente para o lucro por km.
-2. Corridas > Registrar corrida/turno: ordem dos campos: Data, Km rodados, Consumo elétrico, Tempo trabalhado, Gasolina usada, Ganhos Uber, Ganhos 99.
-
-Instalação: substitua index.html, corridas.js e sw.js no repositório GitHub. Preserve cloud.js e os demais arquivos.
-
-Atenção: valores de gasolina usados em percurso seguem informativos, como no aplicativo atual; abastecimentos registrados em Despesas entram nos custos.
