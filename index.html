@@ -175,13 +175,13 @@ main.wrap{max-width:1160px}
     </article>
   </div>
   <article class="card home-performance" aria-labelledby="perfTitle">
-    <div class="home-heading"><div><h2 id="perfTitle">◫ Desempenho das corridas</h2><p class="hint">Últimas 15 corridas</p></div><span id="perfCount" class="home-pill perf-tag">0 corridas</span></div>
+    <div class="home-heading"><div><h2 id="perfTitle">◫ Desempenho das corridas</h2><p class="hint">Últimos 15 dias com corridas</p></div><span id="perfCount" class="home-pill perf-tag">0 dias</span></div>
     <div class="perf-controls" aria-label="Exibir indicadores">
       <button type="button" class="perf-toggle" id="perfToggleKm" aria-pressed="true" style="--line-color:#4de0b0"><span class="perf-line"></span>Lucro/km</button>
       <button type="button" class="perf-toggle" id="perfToggleHour" aria-pressed="true" style="--line-color:#6ea8ff"><span class="perf-line"></span>Lucro/hora</button>
     </div>
     <div class="perf-plot" id="perfPlot">
-      <svg id="perfChart" viewBox="0 0 720 305" role="img" aria-label="Lucro por quilômetro e por hora das últimas quinze corridas"></svg>
+      <svg id="perfChart" viewBox="0 0 720 305" role="img" aria-label="Lucro por quilômetro e por hora dos últimos quinze dias com corridas"></svg>
       <div id="perfTooltip" class="perf-tip" hidden aria-live="polite"></div>
       <div class="perf-axis-note"><span>Esquerda: R$/km</span><span>Direita: R$/hora</span></div>
     </div>
@@ -195,7 +195,7 @@ main.wrap{max-width:1160px}
       <span><i style="background:#4de0b0"></i>Acima de R$ 1,50/km — Bom</span>
     </div>
   </article>
-  <article class="card home-efficiency"><div class="home-heading"><h2>ϟ Eficiência elétrica</h2><span class="home-pill">Últimos 15 dias</span></div><div class="home-eff-grid"><div class="home-chart-wrap"><svg id="homeEfficiencyChart" viewBox="0 0 640 215" role="img" aria-label="Consumo elétrico por dia em kWh por 100 km"></svg><div class="home-chart-note">Consumo registrado nas corridas (kWh por 100 km). Dias sem quilometragem não entram na média.</div></div><div class="home-eff-numbers"><div><span>Consumo médio</span><strong id="effAverage">—</strong></div><div><span>Custo de energia por km</span><strong id="effCost">—</strong></div><div><span>Eficiência média</span><strong id="effKmKwh">—</strong></div></div></div></article>
+  <article class="card home-efficiency"><div class="home-heading"><h2>ϟ Eficiência elétrica</h2><span class="home-pill">Últimos 15 dias com corridas</span></div><div class="home-eff-grid"><div class="home-chart-wrap"><svg id="homeEfficiencyChart" viewBox="0 0 640 215" role="img" aria-label="Consumo elétrico por dia em kWh por 100 km"></svg><div class="home-chart-note">Consumo registrado nas corridas (kWh por 100 km). Somente dias com quilometragem aparecem, sem espaços vazios.</div></div><div class="home-eff-numbers"><div><span>Consumo médio</span><strong id="effAverage">—</strong></div><div><span>Custo de energia por km</span><strong id="effCost">—</strong></div><div><span>Eficiência média</span><strong id="effKmKwh">—</strong></div></div></div></article>
   <article class="card home-recent"><div class="home-heading"><div><h2>☷ Lançamentos recentes</h2><p class="hint">Edite os lançamentos sem precisar excluir e cadastrar novamente.</p></div><select id="homeRecentType" aria-label="Tipo de lançamento"><option value="ride">Corridas</option><option value="charge">Recargas</option></select></div><div id="homeRecentList" class="home-recent-list"><p class="hint">Aguardando dados da conta.</p></div></article>
   <div id="homeEditOverlay" class="home-edit-overlay" hidden><div class="home-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="homeEditHeading"><div class="home-heading"><h2 id="homeEditHeading">Editar lançamento</h2><button type="button" class="home-icon-btn" id="homeEditClose" aria-label="Fechar edição">✕</button></div><form id="homeEditForm"><div id="homeEditFields" class="home-edit-fields"></div><p id="homeEditStatus" class="hint" role="status"></p><div class="home-edit-actions"><button type="button" class="secondary" id="homeEditCancel">Cancelar</button><button type="submit" class="primary" id="homeEditSubmit">Salvar alterações</button></div></form></div></div>
 </section><section id="recargas" hidden><div hidden><span id="re_cloudIndicator"></span><span id="re_cloudMessage"></span><button id="re_loginGoogle" type="button"></button><button id="re_logoutGoogle" type="button"></button></div>
@@ -240,7 +240,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=38')
+ import('./corridas.js?v=40')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)

@@ -60,7 +60,7 @@ function homeWindows(mode){const now=new Date(),todayStr=dateISO(now);if(mode===
 function comparisonValue(id,value,prior){const node=$(id);if(!node)return;if(prior===0){node.textContent=value===0?'Sem variação':'Sem base anterior';node.className='';return}const rate=(value-prior)/Math.abs(prior)*100;node.textContent=(rate>0?'▲ ':rate<0?'▼ ':'= ')+new Intl.NumberFormat('pt-BR',{maximumFractionDigits:1}).format(Math.abs(rate))+'%';node.className=rate>0?'good':rate<0?'bad':''}
 function svgNode(tag,attrs,textValue){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))n.setAttribute(k,v);if(textValue!=null)n.textContent=String(textValue);return n}
 
-// v38: últimas 15 corridas, rentabilidade colorida e tooltip individual.
+// v39: últimos 15 dias com corridas, rentabilidade colorida e tooltip individual.
 const performanceVisibility={km:true,hour:true};
 let performancePinned=null;
 const performanceMoney=n=>Number.isFinite(n)?brl(n):'—';
@@ -76,13 +76,27 @@ function renderPerformance(){
  const chart=$('perfChart');if(!chart)return;
  chart.replaceChildren();
  const tooltip=$('perfTooltip');tooltip.hidden=true;performancePinned=null;
- const rows=[...state.rides].sort((a,b)=>b.date.localeCompare(a.date)||String(b.id).localeCompare(String(a.id))).slice(0,15).reverse();
- $('perfCount').textContent=rows.length+' '+(rows.length===1?'corrida':'corridas');
- const points=rows.map((r,i)=>{
-   const profit=revenueHome(r)-energyHome(r)-reserveHome(r);
-   const km=Number(r.km||0),hours=Number(r.hours||0);
-   return{index:i,date:r.date,km,hours,profit,kmRate:km>0?profit/km:null,hourRate:hours>0?profit/hours:null};
- });
+ // Um ponto por dia trabalhado. Somamos todos os lançamentos antes de
+ // dividir o lucro pelos quilômetros ou pelas horas daquele dia.
+ // Dias sem corridas não entram na série: os 15 pontos são os últimos
+ // 15 dias com registros, sem espaços vazios.
+ const grouped=new Map();
+ for(const r of state.rides){
+  if(typeof r.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))continue;
+  let d=grouped.get(r.date);
+  if(!d){d={date:r.date,km:0,hours:0,profit:0,entries:0};grouped.set(r.date,d)}
+  d.km+=Number(r.km||0);
+  d.hours+=Number(r.hours||0);
+  d.profit+=revenueHome(r)-energyHome(r)-reserveHome(r);
+  d.entries++;
+ }
+ const rows=[...grouped.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-15);
+ $('perfCount').textContent=rows.length+' '+(rows.length===1?'dia':'dias');
+ const points=rows.map((d,i)=>({
+  index:i,date:d.date,entries:d.entries,km:d.km,hours:d.hours,profit:d.profit,
+  kmRate:d.km>0?d.profit/d.km:null,
+  hourRate:d.hours>0?d.profit/d.hours:null
+ }));
  const validKm=points.filter(p=>p.kmRate!==null),validHour=points.filter(p=>p.hourRate!==null);
  const sum=(arr,k)=>arr.reduce((a,x)=>a+x[k],0);
  $('perfAvgKm').textContent=validKm.length?performanceMoney(sum(validKm,'profit')/sum(validKm,'km'))+'/km':'—';
@@ -108,14 +122,14 @@ function renderPerformance(){
   if(points.length<=8||i===0||i===points.length-1||i%2===0)
    svg.append(svgNode('text',{x:x(i),y:269,fill:'#a9c0d0','font-size':11,'text-anchor':'middle'},i+1));
  }
- svg.append(svgNode('text',{x:356,y:295,fill:'#a9c0d0','font-size':11,'text-anchor':'middle'},'Corridas (da mais antiga à mais recente)'));
+ svg.append(svgNode('text',{x:356,y:295,fill:'#a9c0d0','font-size':11,'text-anchor':'middle'},'Dias com corridas (do mais antigo ao mais recente)'));
  const lines=svgNode('g',{}),dots=svgNode('g',{});svg.append(lines,dots);
  const fmtDate=s=>s.split('-').reverse().join('/');
  const hideTip=()=>{tooltip.hidden=true;performancePinned=null};
  function showTip(p,key){
   const rate=key==='km'?p.kmRate:p.hourRate;if(rate===null)return;
   const c=key==='km'?performanceColor(rate):'#6ea8ff';
-  const small=document.createElement('small');small.textContent=`Corrida ${p.index+1} · ${fmtDate(p.date)} · ${key==='km'?'Lucro/km':'Lucro/hora'}`;
+  const small=document.createElement('small');small.textContent=`${fmtDate(p.date)} · ${p.entries} ${p.entries===1?'lançamento':'lançamentos'} · ${key==='km'?'Lucro/km':'Lucro/hora'}`;
   const strong=document.createElement('strong');strong.textContent=performanceMoney(rate)+(key==='km'?'/km':'/h');
   tooltip.replaceChildren(small,strong);tooltip.hidden=false;tooltip.style.setProperty('--tip-color',c);
   const box=$('perfPlot').getBoundingClientRect(),pnt=chart.createSVGPoint();pnt.x=x(p.index);pnt.y=y(rate,key==='km'?kScale:hScale);
@@ -140,7 +154,7 @@ function renderPerformance(){
    const v=p[field];if(v===null)return;
    const color=key==='km'?performanceColor(v):'#6ea8ff',cx=x(p.index),cy=y(v,axis);
    dots.append(svgNode('circle',{cx,cy,r:4.6,fill:color,stroke:'#0b2032','stroke-width':1.3,'pointer-events':'none'}));
-   const hit=svgNode('circle',{cx,cy,r:15,fill:'transparent',role:'button',tabindex:0,class:'perf-dot','aria-label':`Corrida ${p.index+1}, ${key==='km'?'lucro por km':'lucro por hora'}, ${performanceMoney(v)}`});
+   const hit=svgNode('circle',{cx,cy,r:15,fill:'transparent',role:'button',tabindex:0,class:'perf-dot','aria-label':`Dia ${fmtDate(p.date)}, ${p.entries} lançamentos, ${key==='km'?'lucro por km':'lucro por hora'}, ${performanceMoney(v)}`});
    hit.addEventListener('pointerenter',()=>showTip(p,key));
    hit.addEventListener('focus',()=>showTip(p,key));
    hit.addEventListener('click',e=>{e.stopPropagation();performancePinned={i:p.index,key};showTip(p,key)});
@@ -159,14 +173,57 @@ for(const [id,key] of [['perfToggleKm','km'],['perfToggleHour','hour']]){
  };
 }
 
-function renderEfficiency(){const chart=$('homeEfficiencyChart');if(!chart)return;chart.replaceChildren();const now=new Date(),points=[];for(let i=14;i>=0;i--){const day=offsetISO(now,-i),rides=state.rides.filter(r=>r.date===day),km=sumHome(rides,'km'),kwh=rides.reduce((a,r)=>a+kwhExibicao(r),0);points.push({date:day,km,kwh,ratio:km>0?kwh/km*100:null})}
- const validPoints=points.filter(p=>p.ratio!=null);const xs=points.map((p,i)=>44+i*(561/14)),lo=Math.max(0,Math.min(...validPoints.map(p=>p.ratio),10)-2),hi=Math.max(lo+4,...validPoints.map(p=>p.ratio+2),20),y=v=>169-(v-lo)/(hi-lo)*130;
- for(let k=0;k<4;k++){const val=lo+(hi-lo)*k/3,cy=y(val);chart.append(svgNode('line',{x1:43,x2:605,y1:cy,y2:cy,stroke:'#31546a','stroke-width':1}));chart.append(svgNode('text',{x:2,y:cy+4,fill:'#9bb8ca','font-size':12},fmt(val)))}
- points.forEach((p,i)=>{if(i%3!==0&&i!==points.length-1)return;chart.append(svgNode('text',{x:xs[i],y:196,'text-anchor':'middle',fill:'#b9cfe0','font-size':12},p.date.slice(8)+'/'+p.date.slice(5,7)))});
- let segment=[];const flush=()=>{if(segment.length){chart.append(svgNode('polyline',{points:segment.join(' '),fill:'none',stroke:'#4de0b0','stroke-width':3,'stroke-linecap':'round','stroke-linejoin':'round'}));segment=[]}};
- points.forEach((p,i)=>{if(p.ratio==null){flush();return}segment.push(`${xs[i]},${y(p.ratio)}`)});flush();
- points.forEach((p,i)=>{if(p.ratio==null)return;chart.append(svgNode('circle',{cx:xs[i],cy:y(p.ratio),r:4,fill:'#4de0b0',stroke:'#fff','stroke-width':1}));chart.append(svgNode('title',{},`${p.date}: ${fmt(p.ratio)} kWh/100 km`))});
- const all=homeTotals(offsetISO(now,-14),dateISO(now));$('effAverage').textContent=all.km?fmt(all.kwh/all.km*100)+' kWh/100 km':'—';$('effCost').textContent=all.km?brl(all.energy/all.km)+'/km':'—';$('effKmKwh').textContent=all.kwh?fmt(all.km/all.kwh)+' km/kWh':'—';
+function renderEfficiency(){
+ const chart=$('homeEfficiencyChart');if(!chart)return;
+ chart.replaceChildren();
+ // Um ponto por dia com quilometragem. Exibe os últimos 15 dias com dados,
+ // não os últimos 15 dias do calendário (evita espaços vazios no gráfico).
+ const byDay=new Map();
+ for(const r of state.rides){
+  if(!/^\d{4}-\d{2}-\d{2}$/.test(r.date||''))continue;
+  const km=Number(r.km||0),kwh=kwhExibicao(r),energy=energyHome(r);
+  if(!Number.isFinite(km)||km<=0)continue;
+  const day=byDay.get(r.date)||{date:r.date,km:0,kwh:0,energy:0};
+  day.km+=km;
+  day.kwh+=Number.isFinite(kwh)?kwh:0;
+  day.energy+=Number.isFinite(energy)?energy:0;
+  byDay.set(r.date,day);
+ }
+ const points=[...byDay.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-15)
+  .map(p=>({...p,ratio:p.kwh/p.km*100}));
+ if(!points.length){
+  chart.append(svgNode('text',{x:320,y:110,'text-anchor':'middle',fill:'#a9bfd0','font-size':15},'Nenhuma corrida com quilometragem registrada.'));
+  $('effAverage').textContent='—';$('effCost').textContent='—';$('effKmKwh').textContent='—';
+  return;
+ }
+ const ratios=points.map(p=>p.ratio);
+ const lo=Math.max(0,Math.min(...ratios)-2),hi=Math.max(lo+4,Math.max(...ratios)+2);
+ const x=i=>points.length===1?324:44+i*(561/(points.length-1));
+ const y=v=>169-(v-lo)/(hi-lo)*130;
+ for(let k=0;k<4;k++){
+  const val=lo+(hi-lo)*k/3,cy=y(val);
+  chart.append(svgNode('line',{x1:43,x2:605,y1:cy,y2:cy,stroke:'#31546a','stroke-width':1}));
+  chart.append(svgNode('text',{x:2,y:cy+4,fill:'#9bb8ca','font-size':12},fmt(val)));
+ }
+ const step=Math.max(1,Math.ceil(points.length/6));
+ points.forEach((p,i)=>{
+  if(i%step!==0&&i!==points.length-1)return;
+  chart.append(svgNode('text',{x:x(i),y:196,'text-anchor':'middle',fill:'#b9cfe0','font-size':12},p.date.slice(8)+'/'+p.date.slice(5,7)));
+ });
+ if(points.length>1)chart.append(svgNode('polyline',{
+  points:points.map((p,i)=>`${x(i)},${y(p.ratio)}`).join(' '),
+  fill:'none',stroke:'#4de0b0','stroke-width':3,'stroke-linecap':'round','stroke-linejoin':'round'
+ }));
+ points.forEach((p,i)=>{
+  const marker=svgNode('circle',{cx:x(i),cy:y(p.ratio),r:4,fill:'#4de0b0',stroke:'#fff','stroke-width':1});
+  marker.append(svgNode('title',{},`${p.date.split('-').reverse().join('/')} · ${fmt(p.ratio)} kWh/100 km`));
+  chart.append(marker);
+ });
+ // Os cartões acompanham exatamente os dias exibidos no gráfico.
+ const km=points.reduce((a,p)=>a+p.km,0),kwh=points.reduce((a,p)=>a+p.kwh,0),energy=points.reduce((a,p)=>a+p.energy,0);
+ $('effAverage').textContent=km?fmt(kwh/km*100)+' kWh/100 km':'—';
+ $('effCost').textContent=km?brl(energy/km)+'/km':'—';
+ $('effKmKwh').textContent=kwh?fmt(km/kwh)+' km/kWh':'—';
 }
 function renderHome(){if(!$('homeRevenue'))return;const date=homeSelectedDate,day=homeTotals(date,date);$('homeDateCaption').textContent=(date===today()?'Hoje':'Dia selecionado')+' · '+date.split('-').reverse().join('/');$('homeRevenue').textContent=brl(day.rev);$('homeProfit').textContent=brl(day.profit);$('homeKm').textContent=fmt(day.km)+' km';$('homeKwh').textContent=fmt(day.kwh)+' kWh';$('homeTime').textContent=duration(day.hours);$('homeConsumption').textContent=day.km?fmt(day.kwh/day.km*100)+' kWh/100 km':'—';$('homeHour').textContent='Lucro/hora: '+(day.hours?brl(day.profit/day.hours):'—');$('homePerKm').textContent='Lucro/km: '+(day.km?brl(day.profit/day.km):'—');
  const ranges=homeWindows(homePeriod),a=homeTotals(...ranges.current),b=homeTotals(...ranges.previous);$('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';$('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';$('cmpRevenue').textContent=brl(a.rev);comparisonValue('cmpHourChange',a.hours?a.profit/a.hours:0,b.hours?b.profit/b.hours:0);comparisonValue('cmpKmChange',a.km?a.profit/a.km:0,b.km?b.profit/b.km:0);comparisonValue('cmpRevenueChange',a.rev,b.rev);$('cmpCaption').textContent=ranges.label+'. Variações com base nos lançamentos.';renderPerformance();renderEfficiency();renderHomeRecent()}
