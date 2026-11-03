@@ -186,7 +186,7 @@ main.wrap{max-width:1160px}
     <div class="home-heading"><div><h2 id="perfTitle">◫ Desempenho das corridas</h2><p class="hint">Últimos 15 dias com corridas</p></div><span id="perfCount" class="home-pill perf-tag">0 dias</span></div>
     <div class="perf-controls" aria-label="Exibir indicadores">
       <button type="button" class="perf-toggle" id="perfToggleKm" aria-pressed="true" style="--line-color:#4de0b0"><span class="perf-line"></span>Lucro/km</button>
-      <button type="button" class="perf-toggle" id="perfToggleHour" aria-pressed="true" style="--line-color:#6ea8ff"><span class="perf-line"></span>Lucro/hora</button>
+      <button type="button" class="perf-toggle" id="perfToggleHour" aria-pressed="true" style="--line-color:#2F6BFF"><span class="perf-line"></span>Lucro/hora</button>
     </div>
     <div class="perf-plot" id="perfPlot">
       <svg id="perfChart" viewBox="0 0 720 305" role="img" aria-label="Lucro por quilômetro e por hora dos últimos quinze dias com corridas"></svg>
@@ -195,12 +195,17 @@ main.wrap{max-width:1160px}
     </div>
     <div class="perf-average-grid">
       <div><small>Lucro médio por km</small><strong id="perfAvgKm" style="color:#4de0b0">—</strong></div>
-      <div><small>Lucro médio por hora</small><strong id="perfAvgHour" style="color:#6ea8ff">—</strong></div>
+      <div><small>Lucro médio por hora</small><strong id="perfAvgHour" style="color:#2F6BFF">—</strong></div>
     </div>
     <div class="perf-thresholds" aria-label="Classificação do lucro por quilômetro">
       <span><i style="background:#f05252"></i>Abaixo de R$ 1,00/km — Baixo</span>
       <span><i style="background:#f5c94c"></i>R$ 1,00 a R$ 1,50/km — Médio</span>
       <span><i style="background:#4de0b0"></i>Acima de R$ 1,50/km — Bom</span>
+    </div>
+    <div class="perf-thresholds" aria-label="Classificação do lucro por hora">
+      <span><i style="background:#163A70"></i>Abaixo de R$ 20/h — Baixo</span>
+      <span><i style="background:#2F6BFF"></i>R$ 20 a R$ 30/h — Médio</span>
+      <span><i style="background:#49D9B5"></i>Acima de R$ 30/h — Bom</span>
     </div>
   </article>
   <article class="card home-efficiency"><div class="home-heading"><h2>ϟ Eficiência elétrica</h2><span class="home-pill">Últimos 15 dias com corridas</span></div><div class="home-eff-grid"><div class="home-chart-wrap"><svg id="homeEfficiencyChart" viewBox="0 0 640 215" role="img" aria-label="Consumo elétrico por dia em kWh por 100 km"></svg><div class="home-chart-note">Consumo registrado nas corridas (kWh por 100 km). Somente dias com quilometragem aparecem, sem espaços vazios.</div></div><div class="home-eff-numbers"><div><span>Consumo médio</span><strong id="effAverage">—</strong></div><div><span>Custo de energia por km</span><strong id="effCost">—</strong></div><div><span>Eficiência média</span><strong id="effKmKwh">—</strong></div></div></div></article>
@@ -248,7 +253,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=44')
+ import('./corridas.js?v=45')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)

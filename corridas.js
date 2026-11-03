@@ -86,6 +86,11 @@ function performanceColor(v){
  const t=Math.max(0,Math.min(1,(v-1)/.5));
  return t<.5?blend([240,82,82],[245,201,76],t*2):blend([245,201,76],[77,224,176],(t-.5)*2);
 }
+function performanceHourColor(v){
+ if(v<20)return '#163A70';
+ if(v<=30)return '#2F6BFF';
+ return '#49D9B5';
+}
 function renderPerformance(){
  const chart=$('perfChart');if(!chart)return;
  chart.replaceChildren();
@@ -116,7 +121,9 @@ function renderPerformance(){
  const avgKmRate=validKm.length&&sum(validKm,'km')>0?sum(validKm,'profit')/sum(validKm,'km'):null;
  $('perfAvgKm').textContent=avgKmRate===null?'—':performanceMoney(avgKmRate)+'/km';
  $('perfAvgKm').style.color=avgKmRate===null?'':performanceColor(avgKmRate);
- $('perfAvgHour').textContent=validHour.length?performanceMoney(sum(validHour,'profit')/sum(validHour,'hours'))+'/h':'—';
+ const avgHourRate=validHour.length&&sum(validHour,'hours')>0?sum(validHour,'profit')/sum(validHour,'hours'):null;
+ $('perfAvgHour').textContent=avgHourRate===null?'—':performanceMoney(avgHourRate)+'/h';
+ $('perfAvgHour').style.color=avgHourRate===null?'':performanceHourColor(avgHourRate);
  const svg=chart,left=58,right=652,top=36,bottom=245;
  const x=i=>points.length===1?(left+right)/2:left+i*(right-left)/Math.max(1,points.length-1);
  const scale=(key)=>{
@@ -144,7 +151,7 @@ function renderPerformance(){
  const hideTip=()=>{tooltip.hidden=true;performancePinned=null};
  function showTip(p,key){
   const rate=key==='km'?p.kmRate:p.hourRate;if(rate===null)return;
-  const c=key==='km'?performanceColor(rate):'#6ea8ff';
+  const c=key==='km'?performanceColor(rate):performanceHourColor(rate);
   const small=document.createElement('small');small.textContent=`${fmtDate(p.date)} · ${p.entries} ${p.entries===1?'lançamento':'lançamentos'} · ${key==='km'?'Lucro/km':'Lucro/hora'}`;
   const strong=document.createElement('strong');strong.textContent=performanceMoney(rate)+(key==='km'?'/km':'/h');
   tooltip.replaceChildren(small,strong);tooltip.hidden=false;tooltip.style.setProperty('--tip-color',c);
@@ -164,11 +171,22 @@ function renderPerformance(){
      const t=k/chunks,u=(k+1)/chunks,v=a[field]+(b[field]-a[field])*t,w=a[field]+(b[field]-a[field])*u;
      lines.append(svgNode('line',{x1:x(i-1)+(x(i)-x(i-1))*t,y1:y(v,axis),x2:x(i-1)+(x(i)-x(i-1))*u,y2:y(w,axis),stroke:performanceColor((v+w)/2),'stroke-width':2.8,'stroke-linecap':'round'}));
     }
-   }else lines.append(svgNode('line',{x1:x(i-1),y1:y(a[field],axis),x2:x(i),y2:y(b[field],axis),stroke:'#6ea8ff','stroke-width':2.6,'stroke-linecap':'round'}));
+   }else{
+    const chunks=20;
+    for(let k=0;k<chunks;k++){
+     const t=k/chunks,u=(k+1)/chunks;
+     const v=a[field]+(b[field]-a[field])*t,w=a[field]+(b[field]-a[field])*u;
+     lines.append(svgNode('line',{
+      x1:x(i-1)+(x(i)-x(i-1))*t,y1:y(v,axis),
+      x2:x(i-1)+(x(i)-x(i-1))*u,y2:y(w,axis),
+      stroke:performanceHourColor((v+w)/2),'stroke-width':2.8,'stroke-linecap':'round'
+     }));
+    }
+   }
   }
   points.forEach(p=>{
    const v=p[field];if(v===null)return;
-   const color=key==='km'?performanceColor(v):'#6ea8ff',cx=x(p.index),cy=y(v,axis);
+   const color=key==='km'?performanceColor(v):performanceHourColor(v),cx=x(p.index),cy=y(v,axis);
    dots.append(svgNode('circle',{cx,cy,r:4.6,fill:color,stroke:'#0b2032','stroke-width':1.3,'pointer-events':'none'}));
    const hit=svgNode('circle',{cx,cy,r:15,fill:'transparent',role:'button',tabindex:0,class:'perf-dot','aria-label':`Dia ${fmtDate(p.date)}, ${p.entries} lançamentos, ${key==='km'?'lucro por km':'lucro por hora'}, ${performanceMoney(v)}`});
    hit.addEventListener('pointerenter',()=>showTip(p,key));
@@ -241,10 +259,10 @@ function renderEfficiency(){
  $('effCost').textContent=km?brl(energy/km)+'/km':'—';
  $('effKmKwh').textContent=kwh?fmt(km/kwh)+' km/kWh':'—';
 }
-function renderHome(){if(!$('homeRevenue'))return;const date=homeSelectedDate,day=homeTotals(date,date);$('homeDateCaption').textContent=(date===today()?'Hoje':'Dia selecionado')+' · '+date.split('-').reverse().join('/');$('homeRevenue').textContent=brl(day.rev);$('homeProfit').textContent=brl(day.profit);$('homeKm').textContent=fmt(day.km)+' km';$('homeKwh').textContent=fmt(day.kwh)+' kWh';$('homeTime').textContent=duration(day.hours);$('homeConsumption').textContent=day.kwh>0?fmt(day.km/day.kwh)+' km/kWh':'—';$('homeEnergyCost').textContent=brl(day.energy);$('homeHour').textContent=day.hours>0?brl(day.profit/day.hours)+'/h':'—';$('homePerKm').textContent=day.km>0?brl(day.profit/day.km)+'/km':'—';$('homePerKm').style.color=day.km>0?performanceColor(day.profit/day.km):'';
+function renderHome(){if(!$('homeRevenue'))return;const date=homeSelectedDate,day=homeTotals(date,date);$('homeDateCaption').textContent=(date===today()?'Hoje':'Dia selecionado')+' · '+date.split('-').reverse().join('/');$('homeRevenue').textContent=brl(day.rev);$('homeProfit').textContent=brl(day.profit);$('homeKm').textContent=fmt(day.km)+' km';$('homeKwh').textContent=fmt(day.kwh)+' kWh';$('homeTime').textContent=duration(day.hours);$('homeConsumption').textContent=day.kwh>0?fmt(day.km/day.kwh)+' km/kWh':'—';$('homeEnergyCost').textContent=brl(day.energy);$('homeHour').textContent=day.hours>0?brl(day.profit/day.hours)+'/h':'—';$('homeHour').style.color=day.hours>0?performanceHourColor(day.profit/day.hours):'';$('homePerKm').textContent=day.km>0?brl(day.profit/day.km)+'/km':'—';$('homePerKm').style.color=day.km>0?performanceColor(day.profit/day.km):'';
  const periods=homeWorkingPeriods(homePeriod),a=homeWorkingTotals(periods.current),b=homeWorkingTotals(periods.previous);
  const complete=periods.current.length===periods.n&&periods.previous.length===periods.n;
- $('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';
+ $('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';$('cmpHour').style.color=a.hours?performanceHourColor(a.profit/a.hours):'';
  $('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';$('cmpKm').style.color=a.km?performanceColor(a.profit/a.km):'';
  $('cmpRevenue').textContent=brl(a.rev);
  if(complete){
