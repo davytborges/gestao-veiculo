@@ -166,6 +166,18 @@ main.wrap{max-width:1160px}
 .home-financial-stats b{display:block;color:var(--accent);font-size:clamp(14px,1.35vw,18px);line-height:1.3;overflow-wrap:anywhere}
 @media(max-width:560px){.home-financial-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.home-financial-stats>div{padding:11px 9px}.home-financial-stats b{font-size:15px}}
 @media(max-width:350px){.home-financial-stats{grid-template-columns:1fr}}
+
+/* v47: dois graficos, individualizados dentro do mesmo card, seguindo os botoes do comparativo */
+.home-performance .perf-periods{margin:14px 0;grid-template-columns:repeat(3,minmax(0,1fr))}
+.home-performance .perf-periods button{font-weight:650;font-size:13px;white-space:nowrap}
+.perf-split{display:grid;grid-template-columns:minmax(0,1fr);gap:14px}
+.perf-single{min-width:0;background:#10283d;border:1px solid #345168;border-radius:14px;padding:13px 12px 12px}
+.perf-single h3{margin:0 0 10px;color:#fff;font-size:16px;font-weight:750;line-height:1.35}
+.perf-single .perf-thresholds{margin-top:8px;padding-top:9px}
+.perf-single .perf-plot{padding:10px 8px 4px}
+#perfChartKm,#perfChartHour{display:block;width:100%;height:auto;overflow:visible;touch-action:manipulation}
+.perf-single .perf-thresholds span{color:#d2e0e8}
+@media(max-width:560px){.perf-single{padding:10px 8px}.home-performance .perf-periods button{font-size:12px;padding:10px 2px}.perf-single .perf-plot{padding:8px 2px 3px}}
 </style></head><body><main class="wrap"><h1 class="unified-title">Gestão Veículo Eletrificado</h1><div class="card compact-login" id="authPanel"><div class="row"><strong id="authStatus">Conectando…</strong><button class="secondary" id="googleLogin" type="button" hidden>Entrar com Google</button></div><p id="saveStatus" class="small">Aguardando o Firebase…</p></div><nav class="tabs" aria-label="Menu principal"><button data-tab="inicio" class="active">⌂ Início</button><button data-tab="corridas">🚘 Corridas</button><button data-tab="recargas">⚡ Recargas</button><button data-tab="resumo">📊 Resumo</button><button data-tab="caixa">💰 Caixa</button><button data-tab="ajustes">⚙ Ajustes</button></nav><section id="inicio" class="byd-home">
   <div class="home-top-grid">
     <article class="card home-today">
@@ -183,29 +195,41 @@ main.wrap{max-width:1160px}
     </article>
   </div>
   <article class="card home-performance" aria-labelledby="perfTitle">
-    <div class="home-heading"><div><h2 id="perfTitle">◫ Desempenho das corridas</h2><p class="hint">Últimos 15 dias com corridas</p></div><span id="perfCount" class="home-pill perf-tag">0 dias</span></div>
-    <div class="perf-controls" aria-label="Exibir indicadores">
-      <button type="button" class="perf-toggle" id="perfToggleKm" aria-pressed="true" style="--line-color:#4de0b0"><span class="perf-line"></span>Lucro/km</button>
-      <button type="button" class="perf-toggle" id="perfToggleHour" aria-pressed="true" style="--line-color:#2F6BFF"><span class="perf-line"></span>Lucro/hora</button>
+    <div class="home-heading"><div><h2 id="perfTitle">◫ Desempenho das corridas</h2><p class="hint" id="perfCaption">Últimos 15 dias com corridas</p></div></div>
+    <div class="home-segments perf-periods" role="group" aria-label="Período de desempenho das corridas">
+      <button type="button" class="selected" data-performance-period="15" aria-pressed="true">15 dias</button>
+      <button type="button" data-performance-period="30" aria-pressed="false">30 dias</button>
+      <button type="button" data-performance-period="all" aria-pressed="false">Todo o período</button>
     </div>
-    <div class="perf-plot" id="perfPlot">
-      <svg id="perfChart" viewBox="0 0 720 305" role="img" aria-label="Lucro por quilômetro e por hora dos últimos quinze dias com corridas"></svg>
-      <div id="perfTooltip" class="perf-tip" hidden aria-live="polite"></div>
-      <div class="perf-axis-note"><span>Esquerda: R$/km</span><span>Direita: R$/hora</span></div>
+    <div class="perf-split">
+      <section class="perf-single" aria-labelledby="perfLabelKm">
+        <h3 id="perfLabelKm">Lucro por km</h3>
+        <div class="perf-plot" id="perfPlotKm">
+          <svg id="perfChartKm" viewBox="0 0 720 305" role="img" aria-label="Lucro por quilômetro dos dias com corridas"></svg>
+          <div id="perfTooltipKm" class="perf-tip" hidden aria-live="polite"></div>
+        </div>
+        <div class="perf-thresholds" aria-label="Classificação do lucro por quilômetro">
+          <span><i style="background:#f05252"></i>Abaixo de R$ 1,00/km — Baixo</span>
+          <span><i style="background:#f5c94c"></i>R$ 1,00 a R$ 1,50/km — Médio</span>
+          <span><i style="background:#4de0b0"></i>Acima de R$ 1,50/km — Bom</span>
+        </div>
+      </section>
+      <section class="perf-single" aria-labelledby="perfLabelHour">
+        <h3 id="perfLabelHour">Lucro por hora</h3>
+        <div class="perf-plot" id="perfPlotHour">
+          <svg id="perfChartHour" viewBox="0 0 720 305" role="img" aria-label="Lucro por hora dos dias com corridas"></svg>
+          <div id="perfTooltipHour" class="perf-tip" hidden aria-live="polite"></div>
+        </div>
+        <div class="perf-thresholds" aria-label="Classificação do lucro por hora">
+          <span><i style="background:#f05252"></i>Abaixo de R$ 20/h — Baixo</span>
+          <span><i style="background:#f5c94c"></i>R$ 20 a R$ 30/h — Médio</span>
+          <span><i style="background:#4de0b0"></i>Acima de R$ 30/h — Bom</span>
+        </div>
+      </section>
     </div>
     <div class="perf-average-grid">
-      <div><small>Lucro médio por km</small><strong id="perfAvgKm" style="color:#4de0b0">—</strong></div>
-      <div><small>Lucro médio por hora</small><strong id="perfAvgHour" style="color:#2F6BFF">—</strong></div>
-    </div>
-    <div class="perf-thresholds" aria-label="Classificação do lucro por quilômetro">
-      <span><i style="background:#f05252"></i>Abaixo de R$ 1,00/km — Baixo</span>
-      <span><i style="background:#f5c94c"></i>R$ 1,00 a R$ 1,50/km — Médio</span>
-      <span><i style="background:#4de0b0"></i>Acima de R$ 1,50/km — Bom</span>
-    </div>
-    <div class="perf-thresholds" aria-label="Classificação do lucro por hora">
-      <span><i style="background:#163A70"></i>Abaixo de R$ 20/h — Baixo</span>
-      <span><i style="background:#2F6BFF"></i>R$ 20 a R$ 30/h — Médio</span>
-      <span><i style="background:#49D9B5"></i>Acima de R$ 30/h — Bom</span>
+      <div><small>Lucro médio por km</small><strong id="perfAvgKm">—</strong></div>
+      <div><small>Lucro médio por hora</small><strong id="perfAvgHour">—</strong></div>
     </div>
   </article>
   <article class="card home-efficiency"><div class="home-heading"><h2>ϟ Eficiência elétrica</h2><span class="home-pill">Últimos 15 dias com corridas</span></div><div class="home-eff-grid"><div class="home-chart-wrap"><svg id="homeEfficiencyChart" viewBox="0 0 640 215" role="img" aria-label="Consumo elétrico por dia em kWh por 100 km"></svg><div class="home-chart-note">Consumo registrado nas corridas (kWh por 100 km). Somente dias com quilometragem aparecem, sem espaços vazios.</div></div><div class="home-eff-numbers"><div><span>Consumo médio</span><strong id="effAverage">—</strong></div><div><span>Custo de energia por km</span><strong id="effCost">—</strong></div><div><span>Eficiência média</span><strong id="effKmKwh">—</strong></div></div></div></article>
@@ -253,7 +277,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=45')
+ import('./corridas.js?v=47')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)

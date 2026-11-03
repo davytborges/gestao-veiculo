@@ -74,31 +74,23 @@ function briefDates(days){if(!days.length)return 'sem registros';const fmtDate=d
 function comparisonValue(id,value,prior){const node=$(id);if(!node)return;if(prior===0){node.textContent=value===0?'Sem variação':'Sem base anterior';node.className='';return}const rate=(value-prior)/Math.abs(prior)*100;node.textContent=(rate>0?'▲ ':rate<0?'▼ ':'= ')+new Intl.NumberFormat('pt-BR',{maximumFractionDigits:1}).format(Math.abs(rate))+'%';node.className=rate>0?'good':rate<0?'bad':''}
 function svgNode(tag,attrs,textValue){const n=document.createElementNS('http://www.w3.org/2000/svg',tag);for(const [k,v]of Object.entries(attrs||{}))n.setAttribute(k,v);if(textValue!=null)n.textContent=String(textValue);return n}
 
-// v39: últimos 15 dias com corridas, rentabilidade colorida e tooltip individual.
-const performanceVisibility={km:true,hour:true};
-let performancePinned=null;
+// v47: desempenho por dias com corridas, dois graficos independentes e mesmas cores.
+let performancePeriod='15';
 const performanceMoney=n=>Number.isFinite(n)?brl(n):'—';
-function performanceColor(v){
- if(v<1)return '#f05252';
- if(v>1.5)return '#4de0b0';
- const mix=(a,b,t)=>Math.round(a+(b-a)*t);
+const performanceGradient=(v,lower,upper)=>{
+ if(v<lower)return '#f05252';
+ if(v>upper)return '#4de0b0';
+ const mid=(lower+upper)/2;
+ const mix=(a,b,t)=>Math.round(a+(b-a)*Math.max(0,Math.min(1,t)));
  const blend=(a,b,t)=>`rgb(${mix(a[0],b[0],t)},${mix(a[1],b[1],t)},${mix(a[2],b[2],t)})`;
- const t=Math.max(0,Math.min(1,(v-1)/.5));
- return t<.5?blend([240,82,82],[245,201,76],t*2):blend([245,201,76],[77,224,176],(t-.5)*2);
-}
-function performanceHourColor(v){
- if(v<20)return '#163A70';
- if(v<=30)return '#2F6BFF';
- return '#49D9B5';
-}
+ return v<=mid?blend([240,82,82],[245,201,76],(v-lower)/(mid-lower)):
+  blend([245,201,76],[77,224,176],(v-mid)/(upper-mid));
+};
+function performanceColor(v){return performanceGradient(v,1,1.5)}
+function performanceHourColor(v){return performanceGradient(v,20,30)}
 function renderPerformance(){
- const chart=$('perfChart');if(!chart)return;
- chart.replaceChildren();
- const tooltip=$('perfTooltip');tooltip.hidden=true;performancePinned=null;
- // Um ponto por dia trabalhado. Somamos todos os lançamentos antes de
- // dividir o lucro pelos quilômetros ou pelas horas daquele dia.
- // Dias sem corridas não entram na série: os 15 pontos são os últimos
- // 15 dias com registros, sem espaços vazios.
+ const chartKm=$('perfChartKm'),chartHour=$('perfChartHour');
+ if(!chartKm||!chartHour)return;
  const grouped=new Map();
  for(const r of state.rides){
   if(typeof r.date!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(r.date))continue;
@@ -109,102 +101,108 @@ function renderPerformance(){
   d.profit+=revenueHome(r)-energyHome(r)-reserveHome(r);
   d.entries++;
  }
- const rows=[...grouped.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-15);
- $('perfCount').textContent=rows.length+' '+(rows.length===1?'dia':'dias');
+ const allRows=[...grouped.values()].sort((a,b)=>a.date.localeCompare(b.date));
+ const rows=performancePeriod==='all'?allRows:allRows.slice(-Number(performancePeriod));
+ const caption=performancePeriod==='all'?'Todo o período com corridas':`Últimos ${performancePeriod} dias com corridas`;
+ $('perfCaption').textContent=caption;
  const points=rows.map((d,i)=>({
   index:i,date:d.date,entries:d.entries,km:d.km,hours:d.hours,profit:d.profit,
   kmRate:d.km>0?d.profit/d.km:null,
   hourRate:d.hours>0?d.profit/d.hours:null
  }));
- const validKm=points.filter(p=>p.kmRate!==null),validHour=points.filter(p=>p.hourRate!==null);
+ const validKm=points.filter(p=>Number.isFinite(p.kmRate));
+ const validHour=points.filter(p=>Number.isFinite(p.hourRate));
  const sum=(arr,k)=>arr.reduce((a,x)=>a+x[k],0);
- const avgKmRate=validKm.length&&sum(validKm,'km')>0?sum(validKm,'profit')/sum(validKm,'km'):null;
- $('perfAvgKm').textContent=avgKmRate===null?'—':performanceMoney(avgKmRate)+'/km';
- $('perfAvgKm').style.color=avgKmRate===null?'':performanceColor(avgKmRate);
- const avgHourRate=validHour.length&&sum(validHour,'hours')>0?sum(validHour,'profit')/sum(validHour,'hours'):null;
- $('perfAvgHour').textContent=avgHourRate===null?'—':performanceMoney(avgHourRate)+'/h';
- $('perfAvgHour').style.color=avgHourRate===null?'':performanceHourColor(avgHourRate);
- const svg=chart,left=58,right=652,top=36,bottom=245;
- const x=i=>points.length===1?(left+right)/2:left+i*(right-left)/Math.max(1,points.length-1);
- const scale=(key)=>{
-  const vals=points.map(p=>p[key]).filter(Number.isFinite);
-  if(!vals.length)return{min:0,max:1};
-  const lo=Math.min(...vals),hi=Math.max(...vals),pad=Math.max((hi-lo)*.16,.05,Math.abs(hi)*.08);
-  return{min:Math.min(0,lo-pad),max:hi+pad};
- };
- const kScale=scale('kmRate'),hScale=scale('hourRate');
- const y=(v,axis)=>bottom-(v-axis.min)/Math.max(.0001,axis.max-axis.min)*(bottom-top);
- const numeric=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
- for(let i=0;i<5;i++){
-  const yy=top+i*(bottom-top)/4;
-  svg.append(svgNode('line',{x1:left,x2:right,y1:yy,y2:yy,stroke:'#345168','stroke-width':1}));
-  svg.append(svgNode('text',{x:left-11,y:yy+4,fill:'#8edfc6','font-size':11,'text-anchor':'end'},numeric(kScale.max-i*(kScale.max-kScale.min)/4)));
-  svg.append(svgNode('text',{x:right+12,y:yy+4,fill:'#8fb8ff','font-size':11},numeric(hScale.max-i*(hScale.max-hScale.min)/4)));
- }
- for(let i=0;i<points.length;i++){
-  if(points.length<=8||i===0||i===points.length-1||i%2===0)
-   svg.append(svgNode('text',{x:x(i),y:269,fill:'#a9c0d0','font-size':11,'text-anchor':'middle'},i+1));
- }
- svg.append(svgNode('text',{x:356,y:295,fill:'#a9c0d0','font-size':11,'text-anchor':'middle'},'Dias com corridas (do mais antigo ao mais recente)'));
- const lines=svgNode('g',{}),dots=svgNode('g',{});svg.append(lines,dots);
+ const avgKm=validKm.length&&sum(validKm,'km')>0?sum(validKm,'profit')/sum(validKm,'km'):null;
+ $('perfAvgKm').textContent=avgKm===null?'—':performanceMoney(avgKm)+'/km';
+ $('perfAvgKm').style.color=avgKm===null?'':performanceColor(avgKm);
+ const avgHour=validHour.length&&sum(validHour,'hours')>0?sum(validHour,'profit')/sum(validHour,'hours'):null;
+ $('perfAvgHour').textContent=avgHour===null?'—':performanceMoney(avgHour)+'/h';
+ $('perfAvgHour').style.color=avgHour===null?'':performanceHourColor(avgHour);
  const fmtDate=s=>s.split('-').reverse().join('/');
- const hideTip=()=>{tooltip.hidden=true;performancePinned=null};
- function showTip(p,key){
-  const rate=key==='km'?p.kmRate:p.hourRate;if(rate===null)return;
-  const c=key==='km'?performanceColor(rate):performanceHourColor(rate);
-  const small=document.createElement('small');small.textContent=`${fmtDate(p.date)} · ${p.entries} ${p.entries===1?'lançamento':'lançamentos'} · ${key==='km'?'Lucro/km':'Lucro/hora'}`;
-  const strong=document.createElement('strong');strong.textContent=performanceMoney(rate)+(key==='km'?'/km':'/h');
-  tooltip.replaceChildren(small,strong);tooltip.hidden=false;tooltip.style.setProperty('--tip-color',c);
-  const box=$('perfPlot').getBoundingClientRect(),pnt=chart.createSVGPoint();pnt.x=x(p.index);pnt.y=y(rate,key==='km'?kScale:hScale);
-  const matrix=chart.getScreenCTM();if(!matrix)return;
-  const scr=pnt.matrixTransform(matrix),px=scr.x-box.left,py=scr.y-box.top;
-  tooltip.style.left=Math.max(4,Math.min(box.width-tooltip.offsetWidth-4,px+12))+'px';
-  tooltip.style.top=Math.max(4,Math.min(box.height-tooltip.offsetHeight-4,py-tooltip.offsetHeight-12))+'px';
- }
- const drawLine=(key)=>{
-  const field=key==='km'?'kmRate':'hourRate',axis=key==='km'?kScale:hScale;
+ const numeric=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
+ function drawOne(key){
+  const isKm=key==='km',chart=isKm?chartKm:chartHour;
+  const tooltip=$(isKm?'perfTooltipKm':'perfTooltipHour'),plot=$(isKm?'perfPlotKm':'perfPlotHour');
+  const field=isKm?'kmRate':'hourRate',getColor=isKm?performanceColor:performanceHourColor;
+  chart.replaceChildren();tooltip.hidden=true;
+  const left=58,right=680,top=27,bottom=240;
+  const x=i=>points.length===1?(left+right)/2:left+i*(right-left)/Math.max(1,points.length-1);
+  const vals=points.map(p=>p[field]).filter(Number.isFinite);
+  if(!vals.length){
+   chart.append(svgNode('text',{x:360,y:150,fill:'#aec5d7','text-anchor':'middle','font-size':15},'Nenhum lançamento com '+(isKm?'quilometragem':'horas')+' neste período.'));
+   return;
+  }
+  const low=Math.min(...vals),high=Math.max(...vals),padding=Math.max((high-low)*.16,Math.abs(high)*.08, isKm?.05:1);
+  const axis={min:Math.min(0,low-padding),max:high+padding};
+  if(axis.max<=axis.min)axis.max=axis.min+1;
+  const y=v=>bottom-(v-axis.min)/(axis.max-axis.min)*(bottom-top);
+  for(let i=0;i<5;i++){
+   const yy=top+i*(bottom-top)/4;
+   chart.append(svgNode('line',{x1:left,x2:right,y1:yy,y2:yy,stroke:'#345168','stroke-width':1}));
+   chart.append(svgNode('text',{x:left-10,y:yy+4,fill:'#afc3d2','font-size':11,'text-anchor':'end'},numeric(axis.max-i*(axis.max-axis.min)/4)));
+  }
+  const maxLabels=9,step=Math.max(1,Math.ceil(points.length/maxLabels));
+  points.forEach((p,i)=>{
+   if(i%step===0||i===points.length-1){
+    const label=points.length>30?fmtDate(p.date).slice(0,5):String(i+1);
+    chart.append(svgNode('text',{x:x(i),y:268,fill:'#b6cad7','font-size':points.length>30?9:11,'text-anchor':'middle'},label));
+   }
+  });
+  chart.append(svgNode('text',{x:365,y:295,fill:'#b6cad7','font-size':11,'text-anchor':'middle'},'Dias com corridas (do mais antigo ao mais recente)'));
+  const lines=svgNode('g',{}),dots=svgNode('g',{});chart.append(lines,dots);
   for(let i=1;i<points.length;i++){
-   const a=points[i-1],b=points[i];if(a[field]===null||b[field]===null)continue;
-   if(key==='km'){
-    const chunks=12;
-    for(let k=0;k<chunks;k++){
-     const t=k/chunks,u=(k+1)/chunks,v=a[field]+(b[field]-a[field])*t,w=a[field]+(b[field]-a[field])*u;
-     lines.append(svgNode('line',{x1:x(i-1)+(x(i)-x(i-1))*t,y1:y(v,axis),x2:x(i-1)+(x(i)-x(i-1))*u,y2:y(w,axis),stroke:performanceColor((v+w)/2),'stroke-width':2.8,'stroke-linecap':'round'}));
-    }
-   }else{
-    const chunks=20;
-    for(let k=0;k<chunks;k++){
-     const t=k/chunks,u=(k+1)/chunks;
-     const v=a[field]+(b[field]-a[field])*t,w=a[field]+(b[field]-a[field])*u;
-     lines.append(svgNode('line',{
-      x1:x(i-1)+(x(i)-x(i-1))*t,y1:y(v,axis),
-      x2:x(i-1)+(x(i)-x(i-1))*u,y2:y(w,axis),
-      stroke:performanceHourColor((v+w)/2),'stroke-width':2.8,'stroke-linecap':'round'
-     }));
-    }
+   const a=points[i-1],b=points[i];if(!Number.isFinite(a[field])||!Number.isFinite(b[field]))continue;
+   // Segmentos curtos reproduzem o degrade entre as bolinhas.
+   const chunks=24;
+   for(let k=0;k<chunks;k++){
+    const t=k/chunks,u=(k+1)/chunks,v=a[field]+(b[field]-a[field])*t,w=a[field]+(b[field]-a[field])*u;
+    lines.append(svgNode('line',{
+     x1:x(i-1)+(x(i)-x(i-1))*t,y1:y(v),x2:x(i-1)+(x(i)-x(i-1))*u,y2:y(w),
+     stroke:getColor((v+w)/2),'stroke-width':2.8,'stroke-linecap':'round'
+    }));
    }
   }
+  const hideTip=()=>{tooltip.hidden=true};
+  const showTip=p=>{
+   const value=p[field];if(!Number.isFinite(value))return;
+   const small=document.createElement('small');
+   small.textContent=`${fmtDate(p.date)} · ${p.entries} ${p.entries===1?'lançamento':'lançamentos'} · ${isKm?'Lucro/km':'Lucro/hora'}`;
+   const strong=document.createElement('strong');strong.textContent=performanceMoney(value)+(isKm?'/km':'/h');
+   tooltip.replaceChildren(small,strong);
+   tooltip.style.setProperty('--tip-color',getColor(value));tooltip.hidden=false;
+   const box=plot.getBoundingClientRect(),pnt=chart.createSVGPoint();pnt.x=x(p.index);pnt.y=y(value);
+   const matrix=chart.getScreenCTM();if(!matrix)return;
+   const screen=pnt.matrixTransform(matrix),px=screen.x-box.left,py=screen.y-box.top;
+   tooltip.style.left=Math.max(4,Math.min(box.width-tooltip.offsetWidth-4,px-tooltip.offsetWidth/2))+'px';
+   tooltip.style.top=Math.max(4,Math.min(box.height-tooltip.offsetHeight-4,py-tooltip.offsetHeight-12))+'px';
+  };
   points.forEach(p=>{
-   const v=p[field];if(v===null)return;
-   const color=key==='km'?performanceColor(v):performanceHourColor(v),cx=x(p.index),cy=y(v,axis);
-   dots.append(svgNode('circle',{cx,cy,r:4.6,fill:color,stroke:'#0b2032','stroke-width':1.3,'pointer-events':'none'}));
-   const hit=svgNode('circle',{cx,cy,r:15,fill:'transparent',role:'button',tabindex:0,class:'perf-dot','aria-label':`Dia ${fmtDate(p.date)}, ${p.entries} lançamentos, ${key==='km'?'lucro por km':'lucro por hora'}, ${performanceMoney(v)}`});
-   hit.addEventListener('pointerenter',()=>showTip(p,key));
-   hit.addEventListener('focus',()=>showTip(p,key));
-   hit.addEventListener('click',e=>{e.stopPropagation();performancePinned={i:p.index,key};showTip(p,key)});
-   hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();performancePinned={i:p.index,key};showTip(p,key)}});
-   hit.addEventListener('pointerleave',()=>{if(!performancePinned)tooltip.hidden=true});
+   const value=p[field];if(!Number.isFinite(value))return;
+   const cx=x(p.index),cy=y(value),radius=points.length>45?3.2:4.6;
+   dots.append(svgNode('circle',{cx,cy,r:radius,fill:getColor(value),stroke:'#0b2032','stroke-width':1.3,'pointer-events':'none'}));
+   const hit=svgNode('circle',{cx,cy,r:points.length>45?8:14,fill:'transparent',role:'button',tabindex:0,class:'perf-dot',
+    'aria-label':`${fmtDate(p.date)}: ${performanceMoney(value)} ${isKm?'por km':'por hora'}`});
+   hit.addEventListener('pointerenter',()=>showTip(p));
+   hit.addEventListener('pointerleave',hideTip);
+   hit.addEventListener('focus',()=>showTip(p));
+   hit.addEventListener('blur',hideTip);
+   hit.addEventListener('click',e=>{e.stopPropagation();showTip(p)});
+   hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();showTip(p)}else if(e.key==='Escape')hideTip()});
    dots.append(hit);
   });
- };
- if(performanceVisibility.km)drawLine('km');
- if(performanceVisibility.hour)drawLine('hour');
- chart.onclick=e=>{if(!e.target.classList.contains('perf-dot'))hideTip()};
+  chart.addEventListener('pointerleave',hideTip,{once:true});
+ }
+ drawOne('km');drawOne('hour');
 }
-for(const [id,key] of [['perfToggleKm','km'],['perfToggleHour','hour']]){
- const button=$(id);if(button)button.onclick=()=>{
-  performanceVisibility[key]=!performanceVisibility[key];button.setAttribute('aria-pressed',String(performanceVisibility[key]));renderPerformance();
- };
+for(const button of document.querySelectorAll('[data-performance-period]')){
+ button.addEventListener('click',()=>{
+  performancePeriod=button.dataset.performancePeriod;
+  for(const item of document.querySelectorAll('[data-performance-period]')){
+   const selected=item===button;item.classList.toggle('selected',selected);item.setAttribute('aria-pressed',String(selected));
+  }
+  renderPerformance();
+ });
 }
 
 function renderEfficiency(){
