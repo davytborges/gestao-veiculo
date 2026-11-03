@@ -113,7 +113,9 @@ function renderPerformance(){
  }));
  const validKm=points.filter(p=>p.kmRate!==null),validHour=points.filter(p=>p.hourRate!==null);
  const sum=(arr,k)=>arr.reduce((a,x)=>a+x[k],0);
- $('perfAvgKm').textContent=validKm.length?performanceMoney(sum(validKm,'profit')/sum(validKm,'km'))+'/km':'—';
+ const avgKmRate=validKm.length&&sum(validKm,'km')>0?sum(validKm,'profit')/sum(validKm,'km'):null;
+ $('perfAvgKm').textContent=avgKmRate===null?'—':performanceMoney(avgKmRate)+'/km';
+ $('perfAvgKm').style.color=avgKmRate===null?'':performanceColor(avgKmRate);
  $('perfAvgHour').textContent=validHour.length?performanceMoney(sum(validHour,'profit')/sum(validHour,'hours'))+'/h':'—';
  const svg=chart,left=58,right=652,top=36,bottom=245;
  const x=i=>points.length===1?(left+right)/2:left+i*(right-left)/Math.max(1,points.length-1);
@@ -239,11 +241,11 @@ function renderEfficiency(){
  $('effCost').textContent=km?brl(energy/km)+'/km':'—';
  $('effKmKwh').textContent=kwh?fmt(km/kwh)+' km/kWh':'—';
 }
-function renderHome(){if(!$('homeRevenue'))return;const date=homeSelectedDate,day=homeTotals(date,date);$('homeDateCaption').textContent=(date===today()?'Hoje':'Dia selecionado')+' · '+date.split('-').reverse().join('/');$('homeRevenue').textContent=brl(day.rev);$('homeProfit').textContent=brl(day.profit);$('homeKm').textContent=fmt(day.km)+' km';$('homeKwh').textContent=fmt(day.kwh)+' kWh';$('homeTime').textContent=duration(day.hours);$('homeConsumption').textContent=day.kwh>0?fmt(day.km/day.kwh)+' km/kWh':'—';$('homeEnergyCost').textContent=brl(day.energy);$('homeHour').textContent=day.hours>0?brl(day.profit/day.hours)+'/h':'—';$('homePerKm').textContent=day.km>0?brl(day.profit/day.km)+'/km':'—';
+function renderHome(){if(!$('homeRevenue'))return;const date=homeSelectedDate,day=homeTotals(date,date);$('homeDateCaption').textContent=(date===today()?'Hoje':'Dia selecionado')+' · '+date.split('-').reverse().join('/');$('homeRevenue').textContent=brl(day.rev);$('homeProfit').textContent=brl(day.profit);$('homeKm').textContent=fmt(day.km)+' km';$('homeKwh').textContent=fmt(day.kwh)+' kWh';$('homeTime').textContent=duration(day.hours);$('homeConsumption').textContent=day.kwh>0?fmt(day.km/day.kwh)+' km/kWh':'—';$('homeEnergyCost').textContent=brl(day.energy);$('homeHour').textContent=day.hours>0?brl(day.profit/day.hours)+'/h':'—';$('homePerKm').textContent=day.km>0?brl(day.profit/day.km)+'/km':'—';$('homePerKm').style.color=day.km>0?performanceColor(day.profit/day.km):'';
  const periods=homeWorkingPeriods(homePeriod),a=homeWorkingTotals(periods.current),b=homeWorkingTotals(periods.previous);
  const complete=periods.current.length===periods.n&&periods.previous.length===periods.n;
  $('cmpHour').textContent=a.hours?brl(a.profit/a.hours):'—';
- $('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';
+ $('cmpKm').textContent=a.km?brl(a.profit/a.km):'—';$('cmpKm').style.color=a.km?performanceColor(a.profit/a.km):'';
  $('cmpRevenue').textContent=brl(a.rev);
  if(complete){
   comparisonValue('cmpHourChange',a.hours?a.profit/a.hours:0,b.hours?b.profit/b.hours:0);
