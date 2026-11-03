@@ -158,13 +158,21 @@ main.wrap{max-width:1160px}
 .perf-thresholds span{display:inline-flex;align-items:center;gap:6px}
 .perf-thresholds i{width:9px;height:9px;border-radius:50%;display:inline-block;flex-shrink:0}
 @media(max-width:550px){.home-performance .perf-tag{font-size:11px}.perf-plot{padding:8px 3px 4px}.perf-average-grid>div{padding:10px}.perf-average-grid strong{font-size:15px}.perf-thresholds{font-size:11px;gap:8px}.perf-toggle{font-size:12px}}
+
+/* v43: novos cartões do painel diário com layout responsivo e mesmas cores dos demais indicadores. */
+.home-financial-stats{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:9px;margin-top:11px}
+.home-financial-stats>div{background:#0d2639;border:1px solid var(--stroke);border-radius:12px;padding:13px 10px;min-width:0}
+.home-financial-stats span{display:block;color:var(--muted);font-size:12px;margin-bottom:8px}
+.home-financial-stats b{display:block;color:var(--accent);font-size:clamp(14px,1.35vw,18px);line-height:1.3;overflow-wrap:anywhere}
+@media(max-width:560px){.home-financial-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.home-financial-stats>div{padding:11px 9px}.home-financial-stats b{font-size:15px}}
+@media(max-width:350px){.home-financial-stats{grid-template-columns:1fr}}
 </style></head><body><main class="wrap"><h1 class="unified-title">Gestão Veículo Eletrificado</h1><div class="card compact-login" id="authPanel"><div class="row"><strong id="authStatus">Conectando…</strong><button class="secondary" id="googleLogin" type="button" hidden>Entrar com Google</button></div><p id="saveStatus" class="small">Aguardando o Firebase…</p></div><nav class="tabs" aria-label="Menu principal"><button data-tab="inicio" class="active">⌂ Início</button><button data-tab="corridas">🚘 Corridas</button><button data-tab="recargas">⚡ Recargas</button><button data-tab="resumo">📊 Resumo</button><button data-tab="caixa">💰 Caixa</button><button data-tab="ajustes">⚙ Ajustes</button></nav><section id="inicio" class="byd-home">
   <div class="home-top-grid">
     <article class="card home-today">
       <div class="home-heading"><div><h2>▣ Painel do dia</h2><p class="hint" id="homeDateCaption">Acompanhamento diário</p></div><div class="home-date-controls"><label for="homeSelectedDate">Consultar dia</label><input id="homeSelectedDate" type="date" aria-label="Selecionar dia do painel"/><button id="homeTodayButton" type="button" class="home-pill">Hoje</button></div></div>
       <div class="home-earnings"><div><span>Faturamento</span><strong id="homeRevenue">R$ 0,00</strong></div><div><span>Lucro líquido</span><strong id="homeProfit">R$ 0,00</strong></div></div>
       <div class="home-stats"><div><span>Km rodados</span><b id="homeKm">0 km</b></div><div><span>Consumo elétrico</span><b id="homeKwh">0 kWh</b></div><div><span>Tempo</span><b id="homeTime">0h00min</b></div><div><span>Consumo médio</span><b id="homeConsumption">—</b></div></div>
-      <div class="home-ratios"><span id="homeHour">Lucro/hora: —</span><span id="homePerKm">Lucro/km: —</span></div>
+      <div class="home-financial-stats"><div><span>Gasto com energia</span><b id="homeEnergyCost">R$ 0,00</b></div><div><span>Lucro por hora</span><b id="homeHour">—</b></div><div><span>Lucro por km</span><b id="homePerKm">—</b></div></div>
     </article>
     <article class="card home-comparison"><div class="home-heading"><h2>▥ Comparativo de desempenho</h2></div>
       <div class="home-segments" role="group" aria-label="Quantidade de dias trabalhados para comparação"><button type="button" class="selected" data-home-period="7">7 dias</button><button type="button" data-home-period="15">15 dias</button><button type="button" data-home-period="30">30 dias</button></div>
@@ -240,7 +248,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=41')
+ import('./corridas.js?v=43')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)
