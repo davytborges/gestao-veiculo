@@ -182,6 +182,12 @@ main.wrap{max-width:1160px}
 .perf-single .perf-thresholds span{color:#d2e0e8}
 @media(max-width:560px){.perf-single{padding:10px 8px}.home-performance .perf-periods button{font-size:12px;padding:10px 2px}.perf-single .perf-plot{padding:8px 2px 3px}}
 
+/* v59: indicadores compactos dentro dos graficos, com a cor original dinamica */
+.perf-plot .perf-average-mini{position:absolute;z-index:2;right:clamp(10px,2%,22px);bottom:clamp(38px,15%,55px);display:inline-flex;flex-direction:column;align-items:flex-start;gap:4px;width:max-content;max-width:calc(100% - 22px);padding:8px 10px;background:#0b2032;border:1px solid #345168;border-radius:11px;box-shadow:0 3px 12px #0003;pointer-events:none}
+.perf-average-mini small{display:block;color:var(--muted);font-size:11px;line-height:1.2;white-space:nowrap}
+.perf-average-mini strong{display:block;font-size:16px;line-height:1.2;white-space:nowrap}
+@media(max-width:550px){.perf-plot .perf-average-mini{right:7px;bottom:34px;padding:5px 7px;gap:2px;border-radius:8px}.perf-average-mini small{font-size:9px}.perf-average-mini strong{font-size:12px}}
+
 /* v55: espacamento do faturamento e botoes em Corridas */
 #rides .ride-record-actions{display:flex;flex-direction:column;align-items:flex-end;gap:11px;flex-shrink:0;text-align:right}
 #rides .ride-record-actions .ride-record-buttons{display:flex;align-items:center;justify-content:flex-end;gap:7px}
@@ -216,6 +222,7 @@ main.wrap{max-width:1160px}
         <div class="perf-plot" id="perfPlotKm">
           <svg id="perfChartKm" viewBox="0 0 720 305" role="img" aria-label="Lucro por quilômetro dos dias com corridas"></svg>
           <div id="perfTooltipKm" class="perf-tip" hidden aria-live="polite"></div>
+          <div class="perf-average-mini"><small>Lucro médio por km</small><strong id="perfAvgKm">—</strong></div>
         </div>
         <div class="perf-thresholds" aria-label="Classificação do lucro por quilômetro">
           <span><i style="background:#f05252"></i>Abaixo de R$ 1,00/km — Baixo</span>
@@ -228,6 +235,7 @@ main.wrap{max-width:1160px}
         <div class="perf-plot" id="perfPlotHour">
           <svg id="perfChartHour" viewBox="0 0 720 305" role="img" aria-label="Lucro por hora dos dias com corridas"></svg>
           <div id="perfTooltipHour" class="perf-tip" hidden aria-live="polite"></div>
+          <div class="perf-average-mini"><small>Lucro médio por hora</small><strong id="perfAvgHour">—</strong></div>
         </div>
         <div class="perf-thresholds" aria-label="Classificação do lucro por hora">
           <span><i style="background:#f05252"></i>Abaixo de R$ 20/h — Baixo</span>
@@ -236,11 +244,7 @@ main.wrap{max-width:1160px}
         </div>
       </section>
     </div>
-    <div class="perf-average-grid">
-      <div><small>Lucro médio por km</small><strong id="perfAvgKm">—</strong></div>
-      <div><small>Lucro médio por hora</small><strong id="perfAvgHour">—</strong></div>
-    </div>
-    <section class="home-efficiency" aria-labelledby="homeEfficiencyHeading"><div class="home-heading"><h2 id="homeEfficiencyHeading">ϟ Eficiência elétrica</h2></div><div class="home-eff-grid"><div class="home-chart-wrap"><svg id="homeEfficiencyChart" viewBox="0 0 640 215" role="img" aria-label="Eficiência elétrica por dia em quilômetros por kWh"></svg><div id="homeEfficiencyTooltip" class="perf-tip" hidden aria-live="polite"></div><div class="home-chart-note" id="homeEfficiencyNote">Apenas dias sem gasolina, com km e kWh são exibidos.</div></div><div class="home-eff-numbers"><div><span>Consumo médio</span><strong id="effAverage">—</strong></div><div><span>Custo de energia por km</span><strong id="effCost">—</strong></div><div><span>Eficiência média</span><strong id="effKmKwh">—</strong></div></div></div></section>
+    <section class="home-efficiency" aria-labelledby="homeEfficiencyHeading"><div class="home-heading"><h2 id="homeEfficiencyHeading">Eficiência elétrica</h2></div><div class="home-eff-grid"><div class="home-chart-wrap"><svg id="homeEfficiencyChart" viewBox="0 0 640 215" role="img" aria-label="Eficiência elétrica por dia em quilômetros por kWh"></svg><div id="homeEfficiencyTooltip" class="perf-tip" hidden aria-live="polite"></div><div class="home-chart-note" id="homeEfficiencyNote">Apenas dias sem gasolina, com km e kWh são exibidos.</div></div><div class="home-eff-numbers"><div><span>Consumo médio</span><strong id="effAverage">—</strong></div><div><span>Custo de energia por km</span><strong id="effCost">—</strong></div><div><span>Eficiência média</span><strong id="effKmKwh">—</strong></div></div></div></section>
   </article>
   <div id="homeEditOverlay" class="home-edit-overlay" hidden><div class="home-edit-dialog" role="dialog" aria-modal="true" aria-labelledby="homeEditHeading"><div class="home-heading"><h2 id="homeEditHeading">Editar lançamento</h2><button type="button" class="home-icon-btn" id="homeEditClose" aria-label="Fechar edição">✕</button></div><form id="homeEditForm"><div id="homeEditFields" class="home-edit-fields"></div><p id="homeEditStatus" class="hint" role="status"></p><div class="home-edit-actions"><button type="button" class="secondary" id="homeEditCancel">Cancelar</button><button type="submit" class="primary" id="homeEditSubmit">Salvar alterações</button></div></form></div></div>
 </section><section id="recargas" hidden><div hidden><span id="re_cloudIndicator"></span><span id="re_cloudMessage"></span><button id="re_loginGoogle" type="button"></button><button id="re_logoutGoogle" type="button"></button></div>
@@ -285,7 +289,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=58')
+ import('./corridas.js?v=59')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)
