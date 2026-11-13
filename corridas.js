@@ -239,31 +239,51 @@ for(const button of document.querySelectorAll('[data-performance-period]')){
  });
 }
 
+// O gráfico mede somente eficiência elétrica pura: se qualquer turno do dia
+// usou gasolina, o dia inteiro é excluído (sem alterar receitas ou outros painéis).
+let efficiencyPeriod=15;
+for(const button of document.querySelectorAll('[data-efficiency-period]')){
+ button.addEventListener('click',()=>{
+  efficiencyPeriod=Number(button.dataset.efficiencyPeriod);
+  for(const item of document.querySelectorAll('[data-efficiency-period]')){
+   const selected=item===button;
+   item.classList.toggle('selected',selected);
+   item.setAttribute('aria-pressed',String(selected));
+  }
+  renderEfficiency();
+ });
+}
 function renderEfficiency(){
  const chart=$('homeEfficiencyChart');if(!chart)return;
  chart.replaceChildren();
- // Um ponto por dia com quilometragem. Exibe os últimos 15 dias com dados,
- // não os últimos 15 dias do calendário (evita espaços vazios no gráfico).
  const byDay=new Map();
  for(const r of state.rides){
   if(!/^\d{4}-\d{2}-\d{2}$/.test(r.date||''))continue;
-  const km=Number(r.km||0),kwh=kwhExibicao(r),energy=energyHome(r);
-  if(!Number.isFinite(km)||km<=0)continue;
-  const day=byDay.get(r.date)||{date:r.date,km:0,kwh:0,energy:0};
-  day.km+=km;
-  day.kwh+=Number.isFinite(kwh)?kwh:0;
-  day.energy+=Number.isFinite(energy)?energy:0;
+  const km=Number(r.km||0),kwh=kwhExibicao(r),energy=energyHome(r),liters=Number(r.liters||0);
+  const day=byDay.get(r.date)||{date:r.date,km:0,kwh:0,energy:0,hasGasoline:false};
+  // Inclusive registros de gasolina sem km: eles invalidam a data toda.
+  if(Number.isFinite(liters)&&liters>0)day.hasGasoline=true;
+  if(Number.isFinite(km)&&km>0){
+   day.km+=km;
+   day.kwh+=Number.isFinite(kwh)&&kwh>0?kwh:0;
+   day.energy+=Number.isFinite(energy)?energy:0;
+  }
   byDay.set(r.date,day);
  }
- const points=[...byDay.values()].sort((a,b)=>a.date.localeCompare(b.date)).slice(-15)
-  .map(p=>({...p,ratio:p.kwh/p.km*100}));
+ const points=[...byDay.values()]
+  .filter(p=>!p.hasGasoline&&p.km>0&&p.kwh>0)
+  .sort((a,b)=>a.date.localeCompare(b.date))
+  .slice(-efficiencyPeriod)
+  .map(p=>({...p,ratio:p.km/p.kwh}));
+ $('homeEfficiencyNote').textContent=`Eficiência elétrica (km/kWh). Apenas dias sem uso de gasolina, com km e kWh registrados. Os últimos ${efficiencyPeriod} dias válidos aparecem sem espaços vazios.`;
  if(!points.length){
-  chart.append(svgNode('text',{x:320,y:110,'text-anchor':'middle',fill:'#a9bfd0','font-size':15},'Nenhuma corrida com quilometragem registrada.'));
+  chart.append(svgNode('text',{x:320,y:110,'text-anchor':'middle',fill:'#a9bfd0','font-size':15},'Nenhum dia exclusivamente elétrico com km e kWh registrados.'));
   $('effAverage').textContent='—';$('effCost').textContent='—';$('effKmKwh').textContent='—';
   return;
  }
  const ratios=points.map(p=>p.ratio);
- const lo=Math.max(0,Math.min(...ratios)-2),hi=Math.max(lo+4,Math.max(...ratios)+2);
+ const min=Math.min(...ratios),max=Math.max(...ratios),padding=Math.max(0.4,(max-min)*0.18);
+ const lo=Math.max(0,min-padding),hi=Math.max(lo+0.8,max+padding);
  const x=i=>points.length===1?324:44+i*(561/(points.length-1));
  const y=v=>169-(v-lo)/(hi-lo)*130;
  for(let k=0;k<4;k++){
@@ -282,12 +302,12 @@ function renderEfficiency(){
  }));
  points.forEach((p,i)=>{
   const marker=svgNode('circle',{cx:x(i),cy:y(p.ratio),r:4,fill:'#4de0b0',stroke:'#fff','stroke-width':1});
-  marker.append(svgNode('title',{},`${p.date.split('-').reverse().join('/')} · ${fmt(p.ratio)} kWh/100 km`));
+  marker.append(svgNode('title',{},`${p.date.split('-').reverse().join('/')} · ${fmt(p.ratio)} km/kWh`));
   chart.append(marker);
  });
- // Os cartões acompanham exatamente os dias exibidos no gráfico.
+ // Todos os indicadores utilizam os mesmos dias válidos do gráfico.
  const km=points.reduce((a,p)=>a+p.km,0),kwh=points.reduce((a,p)=>a+p.kwh,0),energy=points.reduce((a,p)=>a+p.energy,0);
- $('effAverage').textContent=km?fmt(kwh/km*100)+' kWh/100 km':'—';
+ $('effAverage').textContent=km?new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3}).format(kwh/km)+' kWh/km':'—';
  $('effCost').textContent=km?brl(energy/km)+'/km':'—';
  $('effKmKwh').textContent=kwh?fmt(km/kwh)+' km/kWh':'—';
 }
