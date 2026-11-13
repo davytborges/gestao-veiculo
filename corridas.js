@@ -271,7 +271,7 @@ function renderEfficiency(){
   .filter(p=>selectedDates.has(p.date)&&!p.hasGasoline&&p.km>0&&p.kwh>0)
   .sort((a,b)=>a.date.localeCompare(b.date))
   .map(p=>({...p,ratio:p.km/p.kwh}));
- $('homeEfficiencyNote').textContent=`Eficiência elétrica (km/kWh). Apenas dias sem gasolina, com km e kWh registrados, dentro de ${performancePeriod==='all'?'todo o período':`últimos ${performancePeriod} dias com corridas`}. Dias inválidos são omitidos sem espaços vazios.`;
+ $('homeEfficiencyNote').textContent='Apenas dias sem gasolina, com km e kWh são exibidos.';
  if(!points.length){
   chart.append(svgNode('text',{x:320,y:110,'text-anchor':'middle',fill:'#a9bfd0','font-size':15},'Nenhum dia exclusivamente elétrico com km e kWh registrados.'));
   $('effAverage').textContent='—';$('effCost').textContent='—';$('effKmKwh').textContent='—';
@@ -296,11 +296,39 @@ function renderEfficiency(){
   points:points.map((p,i)=>`${x(i)},${y(p.ratio)}`).join(' '),
   fill:'none',stroke:'#4de0b0','stroke-width':3,'stroke-linecap':'round','stroke-linejoin':'round'
  }));
+ const tip=$('homeEfficiencyTooltip');
+ const wrap=chart.closest('.home-chart-wrap');
+ if(tip)tip.hidden=true;
+ const hideTip=()=>{if(tip)tip.hidden=true};
+ const showTip=(p,marker)=>{
+  if(!tip||!wrap)return;
+  const small=document.createElement('small');small.textContent=p.date.split('-').reverse().join('/')+' · Eficiência elétrica';
+  const strong=document.createElement('strong');strong.textContent=fmt(p.ratio)+' km/kWh';
+  tip.replaceChildren(small,strong);tip.style.setProperty('--tip-color','#4de0b0');tip.hidden=false;
+  const wrapRect=wrap.getBoundingClientRect(),svgPoint=chart.createSVGPoint();
+  svgPoint.x=Number(marker.getAttribute('cx'));svgPoint.y=Number(marker.getAttribute('cy'));
+  const matrix=chart.getScreenCTM();if(!matrix)return;
+  const screenPoint=svgPoint.matrixTransform(matrix),px=screenPoint.x-wrapRect.left,py=screenPoint.y-wrapRect.top;
+  tip.style.left=Math.max(4,Math.min(wrapRect.width-tip.offsetWidth-4,px-tip.offsetWidth/2))+'px';
+  tip.style.top=Math.max(4,py-tip.offsetHeight-13)+'px';
+ };
  points.forEach((p,i)=>{
-  const marker=svgNode('circle',{cx:x(i),cy:y(p.ratio),r:4,fill:'#4de0b0',stroke:'#fff','stroke-width':1});
-  marker.append(svgNode('title',{},`${p.date.split('-').reverse().join('/')} · ${fmt(p.ratio)} km/kWh`));
+  const cx=x(i),cy=y(p.ratio);
+  const marker=svgNode('circle',{cx,cy,r:4,fill:'#4de0b0',stroke:'#fff','stroke-width':1,'pointer-events':'none'});
   chart.append(marker);
+  const hit=svgNode('circle',{cx,cy,r:14,fill:'transparent',class:'eff-marker-hit',role:'button',tabindex:0,
+   'aria-label':p.date.split('-').reverse().join('/')+' · '+fmt(p.ratio)+' km/kWh'});
+  const show=()=>{marker.setAttribute('r','6');marker.setAttribute('stroke-width','2');showTip(p,marker)};
+  const hide=()=>{marker.setAttribute('r','4');marker.setAttribute('stroke-width','1');hideTip()};
+  hit.addEventListener('pointerenter',show);
+  hit.addEventListener('pointerleave',hide);
+  hit.addEventListener('focus',show);
+  hit.addEventListener('blur',hide);
+  hit.addEventListener('click',show);
+  hit.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();show()}else if(e.key==='Escape')hide()});
+  chart.append(hit);
  });
+ chart.addEventListener('pointerleave',hideTip,{once:true});
  // Todos os indicadores utilizam os mesmos dias válidos do gráfico.
  const km=points.reduce((a,p)=>a+p.km,0),kwh=points.reduce((a,p)=>a+p.kwh,0),energy=points.reduce((a,p)=>a+p.energy,0);
  $('effAverage').textContent=km?new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(100*kwh/km)+' kWh/100 km':'—';
