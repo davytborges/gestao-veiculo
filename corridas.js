@@ -148,11 +148,25 @@ function renderPerformance(){
  const validHour=points.filter(p=>Number.isFinite(p.hourRate));
  const sum=(arr,k)=>arr.reduce((a,x)=>a+x[k],0);
  const avgKm=validKm.length&&sum(validKm,'km')>0?sum(validKm,'profit')/sum(validKm,'km'):null;
- $('perfAvgKm').textContent=avgKm===null?'—':performanceMoney(avgKm)+'/km';
- $('perfAvgKm').style.color=avgKm===null?'':performanceColor(avgKm);
  const avgHour=validHour.length&&sum(validHour,'hours')>0?sum(validHour,'profit')/sum(validHour,'hours'):null;
- $('perfAvgHour').textContent=avgHour===null?'—':performanceMoney(avgHour)+'/h';
- $('perfAvgHour').style.color=avgHour===null?'':performanceHourColor(avgHour);
+ const statsFor=(arr,field,avg)=>({
+  max:arr.length?Math.max(...arr.map(p=>p[field])):null,
+  avg,
+  min:arr.length?Math.min(...arr.map(p=>p[field])):null
+ });
+ const setPerfStat=(id,value,suffix,getColor)=>{
+  const node=$(id);if(!node)return;
+  node.textContent=value===null?'—':performanceMoney(value)+suffix;
+  node.style.color=value===null?'':getColor(value);
+ };
+ const kmStats=statsFor(validKm,'kmRate',avgKm);
+ setPerfStat('perfMaxKm',kmStats.max,'/km',performanceColor);
+ setPerfStat('perfAvgKm',kmStats.avg,'/km',performanceColor);
+ setPerfStat('perfMinKm',kmStats.min,'/km',performanceColor);
+ const hourStats=statsFor(validHour,'hourRate',avgHour);
+ setPerfStat('perfMaxHour',hourStats.max,'/h',performanceHourColor);
+ setPerfStat('perfAvgHour',hourStats.avg,'/h',performanceHourColor);
+ setPerfStat('perfMinHour',hourStats.min,'/h',performanceHourColor);
  const fmtDate=s=>s.split('-').reverse().join('/');
  const numeric=n=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2});
  function drawOne(key){
@@ -183,8 +197,7 @@ function renderPerformance(){
     chart.append(svgNode('text',{x:x(i),y:268,fill:'#b6cad7','font-size':points.length>30?9:11,'text-anchor':'middle'},label));
    }
   });
-  chart.append(svgNode('text',{x:365,y:295,fill:'#b6cad7','font-size':11,'text-anchor':'middle'},'Dias com corridas (do mais antigo ao mais recente)'));
-  const lines=svgNode('g',{}),dots=svgNode('g',{});chart.append(lines,dots);
+    const lines=svgNode('g',{}),dots=svgNode('g',{});chart.append(lines,dots);
   for(let i=1;i<points.length;i++){
    const a=points[i-1],b=points[i];if(!Number.isFinite(a[field])||!Number.isFinite(b[field]))continue;
    // Segmentos curtos reproduzem o degrade entre as bolinhas.
