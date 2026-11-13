@@ -221,6 +221,45 @@ main.wrap{max-width:1160px}
 @media(max-width:560px){
   .home-performance .home-efficiency .home-eff-numbers{grid-template-columns:1fr;}
 }
+
+/* v64: os indicadores de lucro replicam exatamente o empilhamento da
+   Eficiência elétrica: três cards preenchendo igualmente a coluna lateral. */
+.home-performance .perf-side-stats{
+  display:grid;
+  grid-template-columns:minmax(0,1fr);
+  grid-template-rows:repeat(3,minmax(0,1fr));
+  gap:9px;
+  align-content:stretch;
+  min-height:0;
+}
+.home-performance .perf-side-stats>div{
+  box-sizing:border-box;
+  min-height:0;
+  height:100%;
+  padding:13px;
+  flex:none;
+  background:var(--panel2);
+  border-radius:11px;
+}
+.home-performance .perf-side-stats span{
+  font-size:12px;
+  line-height:normal;
+  margin-bottom:8px;
+}
+.home-performance .perf-side-stats strong{font-size:18px}
+@media(max-width:860px){
+  .home-performance .perf-side-stats{
+    grid-template-columns:repeat(3,minmax(0,1fr));
+    grid-template-rows:auto;
+  }
+}
+@media(max-width:560px){
+  .home-performance .perf-side-stats{
+    grid-template-columns:minmax(0,1fr);
+    grid-template-rows:repeat(3,auto);
+  }
+  .home-performance .perf-side-stats>div{height:auto;padding:12px}
+}
 </style></head><body><main class="wrap"><h1 class="unified-title">Gestão Veículo Eletrificado</h1><div class="card compact-login" id="authPanel"><div class="row"><strong id="authStatus">Conectando…</strong><button class="secondary" id="googleLogin" type="button" hidden>Entrar com Google</button></div><p id="saveStatus" class="small">Aguardando o Firebase…</p></div><nav class="tabs" aria-label="Menu principal"><button data-tab="inicio" class="active">⌂ Início</button><button data-tab="corridas">🚘 Corridas</button><button data-tab="recargas">⚡ Recargas</button><button data-tab="resumo">📊 Resumo</button><button data-tab="caixa">💰 Caixa</button><button data-tab="ajustes">⚙ Ajustes</button></nav><section id="inicio" class="byd-home">
   <div class="home-top-grid">
     <article class="card home-today">
@@ -329,7 +368,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=63')
+ import('./corridas.js?v=64')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)
