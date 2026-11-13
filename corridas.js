@@ -30,7 +30,7 @@ const operationalCashExpenses=(begin,end)=>(state.withdrawals||[]).filter(x=>pai
 function render(){const month=$('filterMonth').value||today().slice(0,7),mode=$('periodMode').value,from=$('dateFrom').value,to=$('dateTo').value,year=$('filterYear').value;const include=d=>mode==='range'?(!!from&&!!to&&from<=to&&d>=from&&d<=to):mode==='year'?d.slice(0,4)===year:d.slice(0,7)===month;
  renderCash();const rides=state.rides.filter(r=>include(r.date)),exp=state.expenses.filter(e=>include(e.date)),sum=k=>rides.reduce((a,r)=>a+Number(r[k]||0),0),revenue=dailyRevenue(rides),km=sum('km'),hours=sum('hours'),kwh=rides.reduce((a,r)=>a+kwhExibicao(r),0),liters=sum('liters'),costEnergy=rides.reduce((a,r)=>a+(energyCostOf(r)),0),reserve=rides.reduce((a,r)=>a+r.km*(r.perKm??state.settings.perKm),0),fuel=rides.reduce((a,r)=>a+fuelCostOf(r),0),expenses=exp.reduce((a,e)=>a+e.value,0)+operationalCashExpenses().filter(x=>include(x.date)).reduce((a,x)=>a+Number(x.value||0),0),profit=revenue-costEnergy-reserve-fuel-expenses;
  $('revenue').textContent=brl(revenue);$('profit').textContent=brl(profit);$('distance').textContent=fmt(km)+' km / '+duration(hours);$('energy').textContent=fmt(kwh)+' kWh';$('costEnergy').textContent=brl(costEnergy);$('reserve').textContent=brl(reserve);$('expenses').textContent=brl(expenses);$('ratios').textContent=(km?brl(profit/km):'—')+' · '+(hours?brl(profit/hours):'—');$('detail').textContent=`${rides.length} lançamento(s) de corrida e ${exp.length} despesa(s) antiga(s) no período. Gasolina consumida: ${fmt(liters)} L · custo reservado de combustível: ${brl(fuel)} (apenas corridas novas).`;
- function list(id,items,type){$(id).replaceChildren();if(!items.length){const p=document.createElement('p');p.className='hint';p.textContent='Nenhum lançamento.';$(id).append(p)}for(const r of [...items].map((record,index)=>({record,index})).sort((a,b)=>b.record.date.localeCompare(a.record.date)||(type==='ride'?b.index-a.index:0)).map(x=>x.record)){const div=document.createElement('div');div.className='record';const left=document.createElement('div'),right=document.createElement('div'),title=document.createElement('strong'),small=document.createElement('small'),button=document.createElement('button');title.textContent=r.date.split('-').reverse().join('/');small.textContent=type==='ride'?`${fmt(r.km)} km · ${duration(r.hours)} · ${fmt(kwhExibicao(r))+' kWh'} · Uber ${earningsLabel(r.uber)} · 99 ${earningsLabel(r.n99)}${r.other?' · Outros '+brl(r.other):''}${r.bonus?' · Bônus '+brl(r.bonus):''}`:`${r.category} · ${r.note||'Sem observação'}`;left.append(title,small);const price=document.createElement('strong');price.textContent=type==='ride'?(latestRideIds().has(r.id)?brl(revenueOfDate(r.date)):''):brl(r.value);const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.className='secondary';edit.onclick=()=>{show('inicio');openHomeEditor(type,r.id)};if(type==='ride'){right.className='ride-record-actions';price.className='ride-record-price';const controls=document.createElement('div');controls.className='ride-record-buttons';controls.append(edit,button);right.append(price,controls)}else{right.append(price,edit)}button.textContent='Excluir';button.className='danger';button.onclick=async()=>{if(!confirm('Excluir este registro?'))return;const key=type==='ride'?'rides':'expenses',old=state[key];state[key]=old.filter(x=>x.id!==r.id);if(!await save())state[key]=old;render()};if(type!=='ride')right.append(button);div.append(left,right);$(id).append(div)}}
+ function list(id,items,type){$(id).replaceChildren();if(!items.length){const p=document.createElement('p');p.className='hint';p.textContent='Nenhum lançamento.';$(id).append(p)}for(const r of [...items].map((record,index)=>({record,index})).sort((a,b)=>b.record.date.localeCompare(a.record.date)||(type==='ride'?b.index-a.index:0)).map(x=>x.record)){const div=document.createElement('div');div.className='record';const left=document.createElement('div'),right=document.createElement('div'),title=document.createElement('strong'),small=document.createElement('small'),button=document.createElement('button');title.textContent=r.date.split('-').reverse().join('/');small.textContent=type==='ride'?`${fmt(r.km)} km · ${duration(r.hours)} · ${fmt(kwhExibicao(r))+' kWh'}${Number(r.liters||0)>0?' · '+fmt(Number(r.liters))+'L':''} · Uber ${earningsLabel(r.uber)} · 99 ${earningsLabel(r.n99)}${r.other?' · Outros '+brl(r.other):''}${r.bonus?' · Bônus '+brl(r.bonus):''}`:`${r.category} · ${r.note||'Sem observação'}`;left.append(title,small);const price=document.createElement('strong');price.textContent=type==='ride'?(latestRideIds().has(r.id)?brl(revenueOfDate(r.date)):''):brl(r.value);const edit=document.createElement('button');edit.type='button';edit.textContent='Editar';edit.className='secondary';edit.onclick=()=>{show('inicio');openHomeEditor(type,r.id)};if(type==='ride'){right.className='ride-record-actions';price.className='ride-record-price';const controls=document.createElement('div');controls.className='ride-record-buttons';controls.append(edit,button);right.append(price,controls)}else{right.append(price,edit)}button.textContent='Excluir';button.className='danger';button.onclick=async()=>{if(!confirm('Excluir este registro?'))return;const key=type==='ride'?'rides':'expenses',old=state[key];state[key]=old.filter(x=>x.id!==r.id);if(!await save())state[key]=old;render()};if(type!=='ride')right.append(button);div.append(left,right);$(id).append(div)}}
  list('rides',state.rides,'ride');const byday=new Map();const daysRevenue=dayRevenueMap(rides);for(const r of rides){const x=byday.get(r.date)||{rev:0,km:0,kwh:0,hours:0,energy:0,reserve:0,fuel:0,expenses:0};x.rev=daysRevenue.get(r.date)?.rev||0;x.km+=Number(r.km||0);x.kwh+=kwhExibicao(r);x.hours+=Number(r.hours||0);x.energy+=energyCostOf(r);x.reserve+=Number(r.km||0)*Number(r.perKm??state.settings.perKm);x.fuel+=fuelCostOf(r);byday.set(r.date,x)}for(const e of [...exp,...operationalCashExpenses().filter(x=>include(x.date))]){const x=byday.get(e.date)||{rev:0,km:0,kwh:0,hours:0,energy:0,reserve:0,fuel:0,expenses:0};x.expenses+=Number(e.value||0);byday.set(e.date,x)}$('days').replaceChildren();for(const [d,v] of [...byday].sort((a,b)=>b[0].localeCompare(a[0]))){if(!v.km&&!v.rev)continue;const profit=v.rev-v.energy-v.reserve-(v.fuel||0)-v.expenses;const p=document.createElement('div');p.className='record';p.textContent=`${d.split('-').reverse().join('/')} · ${brl(profit)} · ${fmt(v.km)} km · ${fmt(v.kwh)} kWh · ${duration(v.hours)} · ${v.km?brl(profit/v.km)+'/km':'—/km'}`;$('days').append(p)}if(!$('days').children.length)$('days').textContent='Nenhuma corrida neste período.';renderHome();}
 
 function computeCash(){const sums={energia:0,combustivel:0,reserva:0,ganhos:0};sums.ganhos=dailyRevenue(state.rides);for(const r of state.rides){const energy=energyCostOf(r),fuel=fuelCostOf(r),reserve=Number(r.km||0)*Number(r.perKm??state.settings.perKm);sums.energia+=energy;sums.combustivel+=fuel;sums.reserva+=reserve;sums.ganhos-=energy+fuel+reserve;}sums.ganhos-=(state.expenses||[]).reduce((a,e)=>a+Number(e.value||0),0);for(const x of (state.withdrawals||[]))sums[x.bucket]=(sums[x.bucket]||0)-Number(x.value||0);return sums}
@@ -236,22 +236,18 @@ for(const button of document.querySelectorAll('[data-performance-period]')){
    const selected=item===button;item.classList.toggle('selected',selected);item.setAttribute('aria-pressed',String(selected));
   }
   renderPerformance();
+  renderEfficiency();
  });
 }
 
 // O gráfico mede somente eficiência elétrica pura: se qualquer turno do dia
 // usou gasolina, o dia inteiro é excluído (sem alterar receitas ou outros painéis).
-let efficiencyPeriod=15;
-for(const button of document.querySelectorAll('[data-efficiency-period]')){
- button.addEventListener('click',()=>{
-  efficiencyPeriod=Number(button.dataset.efficiencyPeriod);
-  for(const item of document.querySelectorAll('[data-efficiency-period]')){
-   const selected=item===button;
-   item.classList.toggle('selected',selected);
-   item.setAttribute('aria-pressed',String(selected));
-  }
-  renderEfficiency();
- });
+// O seletor do desempenho controla também este gráfico.
+// O filtro é feito sobre os mesmos dias de corridas selecionados;
+// datas com gasolina são omitidas somente da eficiência elétrica.
+function selectedPerformanceDates(){
+ const dates=[...new Set(state.rides.map(r=>r.date).filter(d=>typeof d==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
+ return new Set(performancePeriod==='all'?dates:dates.slice(-Number(performancePeriod)));
 }
 function renderEfficiency(){
  const chart=$('homeEfficiencyChart');if(!chart)return;
@@ -270,12 +266,12 @@ function renderEfficiency(){
   }
   byDay.set(r.date,day);
  }
+ const selectedDates=selectedPerformanceDates();
  const points=[...byDay.values()]
-  .filter(p=>!p.hasGasoline&&p.km>0&&p.kwh>0)
+  .filter(p=>selectedDates.has(p.date)&&!p.hasGasoline&&p.km>0&&p.kwh>0)
   .sort((a,b)=>a.date.localeCompare(b.date))
-  .slice(-efficiencyPeriod)
   .map(p=>({...p,ratio:p.km/p.kwh}));
- $('homeEfficiencyNote').textContent=`Eficiência elétrica (km/kWh). Apenas dias sem uso de gasolina, com km e kWh registrados. Os últimos ${efficiencyPeriod} dias válidos aparecem sem espaços vazios.`;
+ $('homeEfficiencyNote').textContent=`Eficiência elétrica (km/kWh). Apenas dias sem gasolina, com km e kWh registrados, dentro de ${performancePeriod==='all'?'todo o período':`últimos ${performancePeriod} dias com corridas`}. Dias inválidos são omitidos sem espaços vazios.`;
  if(!points.length){
   chart.append(svgNode('text',{x:320,y:110,'text-anchor':'middle',fill:'#a9bfd0','font-size':15},'Nenhum dia exclusivamente elétrico com km e kWh registrados.'));
   $('effAverage').textContent='—';$('effCost').textContent='—';$('effKmKwh').textContent='—';
@@ -307,7 +303,7 @@ function renderEfficiency(){
  });
  // Todos os indicadores utilizam os mesmos dias válidos do gráfico.
  const km=points.reduce((a,p)=>a+p.km,0),kwh=points.reduce((a,p)=>a+p.kwh,0),energy=points.reduce((a,p)=>a+p.energy,0);
- $('effAverage').textContent=km?new Intl.NumberFormat('pt-BR',{maximumFractionDigits:3}).format(kwh/km)+' kWh/km':'—';
+ $('effAverage').textContent=km?new Intl.NumberFormat('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2}).format(100*kwh/km)+' kWh/100 km':'—';
  $('effCost').textContent=km?brl(energy/km)+'/km':'—';
  $('effKmKwh').textContent=kwh?fmt(km/kwh)+' km/kWh':'—';
 }
