@@ -196,6 +196,11 @@ main.wrap{max-width:1160px}
 #rides .ride-record-actions .ride-record-buttons{display:flex;align-items:center;justify-content:flex-end;gap:7px}
 #rides .ride-record-actions .ride-record-price:empty{display:none}
 #rides .ride-record-actions:has(.ride-record-price:empty){gap:0}
+
+/* v61: mesmo painel escuro para o gráfico de eficiência usado nos gráficos de lucro */
+.home-performance .home-efficiency .home-chart-wrap{background:#0b2032;border-radius:14px;padding:10px 9px 7px;min-width:0}
+.home-performance .home-efficiency .home-chart-note{margin:7px 1px 2px;line-height:1.4}
+@media(max-width:560px){.home-performance .home-efficiency .home-chart-wrap{padding:8px 5px 5px}}
 </style></head><body><main class="wrap"><h1 class="unified-title">Gestão Veículo Eletrificado</h1><div class="card compact-login" id="authPanel"><div class="row"><strong id="authStatus">Conectando…</strong><button class="secondary" id="googleLogin" type="button" hidden>Entrar com Google</button></div><p id="saveStatus" class="small">Aguardando o Firebase…</p></div><nav class="tabs" aria-label="Menu principal"><button data-tab="inicio" class="active">⌂ Início</button><button data-tab="corridas">🚘 Corridas</button><button data-tab="recargas">⚡ Recargas</button><button data-tab="resumo">📊 Resumo</button><button data-tab="caixa">💰 Caixa</button><button data-tab="ajustes">⚙ Ajustes</button></nav><section id="inicio" class="byd-home">
   <div class="home-top-grid">
     <article class="card home-today">
@@ -304,7 +309,7 @@ function showCloudError(err){
 // O sufixo da versão impede que a versão anterior do service worker seja reutilizada.
 const [cloudResult,corridasResult]=await Promise.allSettled([
  import('./cloud.js?v=36'),
- import('./corridas.js?v=59')
+ import('./corridas.js?v=61')
 ]);
 if(cloudResult.status==='rejected')showCloudError(cloudResult.reason);
 else if(!window.BYDCloud?.commit||!window.BYDCloud?.deleteRecord)
